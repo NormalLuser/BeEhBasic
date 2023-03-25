@@ -11,7 +11,7 @@ Remember, all commands must be in CAPS
 New non-standard commands:
 
 CLS 		-Clears screen to black
-COLOR X	-Colors screen chosen color IE COLOR 48 
+COLOR X	  -Colors screen chosen color IE COLOR 48 
 PLOT X,Y	-Plots a pixel with x/y coordinate system.
 
 Currently to change the plot color you would POKE the value to $EC. 
