@@ -312,10 +312,10 @@ IrqBase           = $DF       ; IRQ handler enabled/setup/triggered flags
 ;                 = $E8       ; unused
 ;                 = $E9       ; unused
 ;                 = $EA       ; unused
-;                 = $EB       ; unused
-;                 = $EC       ; unused
-;                 = $ED       ; unused
-;                 = $EE       ; unused
+BackColor         = $EB       ; unused
+PlotColor         = $EC       ; unused
+Screen            = $ED       ; unused
+ScreenH           = $EE       ; unused
 
 Decss             = $EF       ; number to decimal string start
 Decssp1           = Decss+1   ; number to decimal string start
@@ -357,7 +357,8 @@ TK_DOKE           = TK_POKE+1       ; DOKE token
 TK_CALL           = TK_DOKE+1       ; CALL token
 TK_DO             = TK_CALL+1       ; DO token
 TK_LOOP           = TK_DO+1         ; LOOP token
-TK_PRINT          = TK_LOOP+1       ; PRINT token
+TK_PLOT           = TK_LOOP+1       ; PLOT token
+TK_PRINT          = TK_PLOT+1       ; PRINT token
 TK_CONT           = TK_PRINT+1      ; CONT token
 TK_LIST           = TK_CONT+1       ; LIST token
 TK_CLEAR          = TK_LIST+1       ; CLEAR token
@@ -7184,82 +7185,6 @@ S_Bits
       STA   (Itempl,X)        ; save byte via temporary integer (addr)
 LAB_2D04
       RTS
-LAB_COLOR
- PHP
- PHA
- PHX
- PHY
- 
-  ;set our source memory address to copy from
- ;$8500
- lda #$00 
- sta $FB
- lda #$85
- sta $FC
- lda #$00 ;set our destination memory to copy to, $2000, WRAM
- sta $FD
- lda #$20
- sta $FE
- ldy #$00 ;reset x and y for our loop
- ;lda #$4
- JSR LAB_GTBY ;get byte
- TXA ;Guess it is in x
- LDX #32 ;32 'lines' as each line is 255 IE 2 lines each
-LoopCOLOR: ;Image loop
- ;lda ($FB),Y ;indirect index source memory address, starting at $00
- sta ($FD),Y ;indirect index dest memory address, starting at $00
- INY
- bne LoopCOLOR ;loop until our dest goes over 255
- ;inc $FC ;increment high order source memory address, starting at $80
- inc $FE ;increment high order dest memory address, starting at $60
- ;lda $FE ;load high order mem address into a
- ;copy 68 lines
- DEX
- bne LoopCOLOR ;if we're not there yet, loop
- 
- PLY
- PLX
- PLA
- PLP
- RTS
-
-LAB_CLS
- PHP
- PHA
- PHX
- PHY
- 
- LDX #32 ;32 'lines' as each line is 255 IE 2 lines each
- ;set our source memory address to copy from
- ;$8500
- lda #$00 
- sta $FB
- lda #$85
- sta $FC
- lda #$00 ;set our destination memory to copy to, $2000, WRAM
- sta $FD
- lda #$20
- sta $FE
- ldy #$00 ;reset x and y for our loop
- lda #$00
-LoopCLS: ;Image loop
- ;lda ($FB),Y ;indirect index source memory address, starting at $00
- sta ($FD),Y ;indirect index dest memory address, starting at $00
- INY
- bne LoopCLS ;loop until our dest goes over 255
- ;inc $FC ;increment high order source memory address, starting at $80
- inc $FE ;increment high order dest memory address, starting at $60
- ;lda $FE ;load high order mem address into a
- ;copy 68 lines
- DEX
- bne LoopCLS ;if we're not there yet, loop
- 
- PLY
- PLX
- PLA
- PLP
- RTS
- 
 
 ; perform BITCLR
 
@@ -8061,8 +7986,87 @@ LAB_2CF4
 LAB_2D05
       RTS
 
-; page zero initialisation table $00-$12 inclusive
 
+
+LAB_PLOT
+      JSR   LAB_GADB          ; get two parameters for POKE or WAIT
+      TXA                     ; A IS ROW 0-63
+      LDY Itempl              ; Y IS COLUMN 0-99
+      LDX PlotColor           ; X IS COLOR
+      ;Maybe I should add bounds checks. or not....
+      ASL
+      PHX
+      TAX
+      LDA HLINES,X
+      STA Screen
+      INX
+      LDA HLINES,X
+      STA ScreenH
+      PLX
+      TXA
+      STA (Screen),Y
+      RTS
+LAB_COLOR
+      PHP
+      PHA
+      PHX
+      PHY
+      lda #$00 ;set our destination memory to copy to, $2000
+      sta Screen
+      lda #$20
+      sta ScreenH
+      ldy #$00 ;reset x and y for our loop
+      ;lda #$4
+      JSR LAB_GTBY ;get byte
+      TXA ;Guess it is in x
+      LDX #32 ;32 'lines' as each line is 255 IE 2 lines each
+LoopCOLOR: ;Image loop
+      sta (Screen),Y ;indirect index dest memory address, starting at $00
+      INY
+      bne LoopCOLOR ;loop until our dest goes over 255
+      inc ScreenH   ;increment high order dest memory address, starting at $60
+      DEX
+      bne LoopCOLOR ;if we're not there yet, loop
+      PLY
+      PLX
+      PLA
+      PLP
+      RTS
+
+LAB_CLS
+      PHP
+      PHA
+      PHX
+      PHY
+      LDX #32 ;32 'lines' as each line is 255 IE 2 lines each
+      lda #$00 ;set our destination memory to copy to, $2000, WRAM
+      sta Screen
+      lda #$20
+      sta ScreenH
+      ldy #$00 ;reset x and y for our loop
+      lda #$00
+LoopCLS: ;Image loop
+      sta (Screen),Y ;indirect index dest memory address, starting at $00
+      INY
+      bne LoopCLS ;loop until our dest goes over 255
+      inc ScreenH ;increment high order dest memory address, starting at $60
+      DEX
+      bne LoopCLS ;if we're not there yet, loop
+      PLY
+      PLX
+      PLA
+      PLP
+      RTS
+ 
+
+
+ HLINES:
+    .WORD $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380,$2400,$2480,$2500,$2580,$2600,$2680,$2700,$2780
+    .WORD $2800,$2880,$2900,$2980,$2A00,$2A80,$2B00,$2B80,$2C00,$2C80,$2D00,$2D80,$2E00,$2E80,$2F00,$2F80
+    .WORD $3000,$3080,$3100,$3180,$3200,$3280,$3300,$3380,$3400,$3480,$3500,$3580,$3600,$3680,$3700,$3780
+    .WORD $3800,$3880,$3900,$3980,$3A00,$3A80,$3B00,$3B80,$3C00,$3C80,$3D00,$3D80,$3E00,$3E80,$3F00,$3F80
+
+; page zero initialisation table $00-$12 inclusive
 StrTab
       .byte $4C               ; JMP opcode
       .word LAB_COLD          ; initial warm start vector (cold start)
@@ -8086,7 +8090,7 @@ LAB_MSZM
 
 LAB_SMSG
       .byte " Bytes free",$0D,$0A,$0A
-      .byte "Enhanced BASIC 2.22p5",$0A,$00
+      .byte "BE 6502 Enhanced BASIC 2.22p5 -VGA -P",$0A,$00
 
 ; numeric constants and series
 
@@ -8236,6 +8240,7 @@ LAB_CTBL
       .word LAB_CALL-1        ; CALL            new command
       .word LAB_DO-1          ; DO              new command
       .word LAB_LOOP-1        ; LOOP            new command
+      .word LAB_PLOT-1        ; PLOT
       .word LAB_PRINT-1       ; PRINT
       .word LAB_CONT-1        ; CONT
       .word LAB_LIST-1        ; LIST
@@ -8611,6 +8616,9 @@ LBB_POKE
       .byte "OKE",TK_POKE     ; POKE
 LBB_POS
       .byte "OS(",TK_POS      ; POS(
+LBB_PLOT
+      .byte "LOT",TK_PLOT   ; PRINT
+      ;.byte $00
 LBB_PRINT
       .byte "RINT",TK_PRINT   ; PRINT
       .byte $00
@@ -8766,6 +8774,8 @@ LAB_KEYT
       .word LBB_DO            ; DO
       .byte 4,'L'
       .word LBB_LOOP          ; LOOP
+      .byte 4,'P'
+      .word LBB_PLOT         ; PRINT
       .byte 5,'P'
       .word LBB_PRINT         ; PRINT
       .byte 4,'C'
