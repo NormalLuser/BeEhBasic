@@ -50,7 +50,7 @@
 ; zero page use ..
 ; the following locations are bulk initialized from StrTab at LAB_GMEM
 ; Change below so Baic does not overwrite/use BE video ram
-Ram_top           = $1FFF ;$2000     ; end of user RAM+1 (set as needed, should be page aligned)
+Ram_top           = $2000     ; end of user RAM+1 (set as needed, should be page aligned)
 
 LAB_WARM          = $00       ; BASIC warm start entry point
 Wrmjpl            = LAB_WARM+1; BASIC warm start vector jump low byte
@@ -551,7 +551,7 @@ TabLoop
       STY   Bpntrh            ; set BASIC execute pointer high byte
       JSR   LAB_GBYT          ; get last byte back
 
-      ;BNE   LAB_2DAA          ; branch if not null (user typed something)
+      BNE   LAB_2DAA          ; branch if not null (user typed something)
 
       LDY   #$00              ; else clear Y
                               ; character was null so get memory size the hard way
@@ -8086,7 +8086,7 @@ StrTab
 EndTab
 
 LAB_MSZM
-      .byte $0D,$0A,"Memory size ",$00
+      .byte $0D,$0A,"Memory size <Enter> for default with VGA, 16384 for max NO VGA",$00
 
 LAB_SMSG
       .byte " Bytes free",$0D,$0A,$0A

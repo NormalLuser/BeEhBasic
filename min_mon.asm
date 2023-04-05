@@ -9,6 +9,7 @@
       .include "basic.asm"
       .include "WozCall.asm"
     
+
 ; put the IRQ and MNI code in RAM so that it can be changed
 
 IRQ_vec     = VEC_SV+2        ; IRQ code vector
@@ -65,7 +66,7 @@ LAB_dowarm
 
 ; Polled 65c51 I/O routines adapted to EhBASIC. Delay routine from
 ; http://forum.6502.org/viewtopic.php?f=4&t=2543&start=30#p29795
-ACIA        = $4000 ;$8800
+ACIA         = $5000 ;Modified to match Ben Eater mapping was $4000 ;org $8800
 ACIA_RX      = ACIA ;$8400
 ACIA_TX      = ACIA ;$8400
 ACIA_STATUS  = ACIA+1;$8401
@@ -161,7 +162,7 @@ NMI_CODE
 END_CODE
 
 LAB_mess
-      .byte $0D,$0A,"6502 BeEhBASIC 0.3 [C]old/[W]arm ?",$00
+      .byte $0D,$0A,"6502 BeEhBASIC VGA ACIA 0.3 [C]old/[W]arm ?",$00
                               ; sign on string
 
 ; system vectors
