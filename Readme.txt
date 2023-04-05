@@ -19,6 +19,29 @@ POKE $EC, 3
 
 
 Example BASIC code
+
+Screen Saver using plot
+
+1 CLS
+2 PRINT "{CTRL/C} EXIT PROGRAM"
+3 X = 1 : Y = 1
+4 DX = 1 : DY = 1
+5 POKE $EC,X+1 : PLOT  X,Y
+6 T = T+1
+7 POKE $EC,Y+1 : PLOT  X,Y
+8 X = X + DX
+9 IF X <= 0 OR X >= 99 THEN DX = -DX
+10 Y = Y + DY
+11 IF Y <= 0 OR Y >= 62 THEN DY = -DY
+12 IF T = 448 THEN INC X
+14 IF T = 1098 THEN INC X
+15 IF T = 4031 THEN CLS
+16 IF T = 4400 THEN T = 0
+20 GOTO 5
+
+
+
+
 RANDOM WITH PLOT
 
 1 R=PI
