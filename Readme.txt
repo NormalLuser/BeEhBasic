@@ -30,6 +30,8 @@ You can use the below one line format example to set the color and plot the pixe
 
 10 POKE $EC,3 : PLOT 1,1
 
+NOTE:
+There is no bounds checking on the PLOT command. Using X values other than 0-99 and Y other than 0-63 will lead to strange and unwanted results.
 
 Example BASIC code
 
