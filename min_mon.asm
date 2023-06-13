@@ -1,4 +1,5 @@
- ;.org $8000
+;VGAClock          = $E5       ; unused 
+;.org $8000
 ; minimal monitor for EhBASIC and 6502 simulator V1.05
 ; tabs converted to space, tabwidth=6
 
@@ -7,13 +8,11 @@
 ; will do nothing, you'll still have to do a reset to run the code.
 
       .include "basic.asm"
-      .include "WozCall.asm"
-    
 
 ; put the IRQ and MNI code in RAM so that it can be changed
 
 IRQ_vec     = VEC_SV+2        ; IRQ code vector
-NMI_vec     = IRQ_vec+$0A     ; NMI code vector
+;NMI_vec     = IRQ_vec+$0A     ; NMI code vector
 
 ; now the code. all this does is set up the vectors and interrupt code
 ; and wait for the user to select [C]old or [W]arm start. nothing else
@@ -152,26 +151,101 @@ IRQ_CODE
 
 NMI_CODE
       PHA                     ; save A
+      ; ;FIFTY
+      ;  PHP ;SAVE PROCESS FLAGS
+      ;  LDA #1
+      ;  ADC $E2
+      ;  STA $E2
+      ;  STA $2626
+
       LDA   NmiBase           ; get the NMI flag byte
       LSR                     ; shift the set b7 to b6, and on down ...
       ORA   NmiBase           ; OR the original back in
       STA   NmiBase           ; save the new NMI flag byte
+      
+      ; PLP ;FIFTY RESTORE PROCESS FLAGS
+
       PLA                     ; restore A
       RTI
 
 END_CODE
 
-LAB_mess
-      .byte $0D,$0A,"6502 BeEhBASIC VGA ACIA 0.3 [C]old/[W]arm ?",$00
-                              ; sign on string
+NMI_vec
+; NMI:;
+      ;PHA
+      PHP
+      ;PHX 
+      ;PHY 
+      ;Attempt at vga 'clock' and test
+      ;TRY THIS ONE OUT -YEP ALL YOU NEED FOR CLOCK
+        INC $E2 ;VGAClock
+        ;OK, this can mess with the carry flag.
+        ;random screw ups.
+        ;Be sure to push and pull the processor status flags!    
 
-; system vectors
+        ;LDA $E2 ;SHOW BLINKIN' PIXEL
+        ;STA $2626 ;FOR TEST
+
+
+;       ;draw routine here.
+;       ;one routine per NMI, then return.
+;       ;If we add more than one NMI draw we will need to 
+;       ;figure out a good way to give up some time
+;       ;to basic.. or maybe just do sprites and give
+;       ;basic any scraps.....?
+
+      
+      ;LDA SpriteMove
+      ;BEQ NoMove
+      ;JSR DrawSprite
+NoMove:
+
+;       ;check for a clear from CLS
+
+
+;       ;Check for sprite from GFX
+
+;       ;Check for pixel from MOVE
+
+
+;      PLY
+;      PLX
+      PLP ;Pull that flag!
+;      PLA
+      RTI
+
+
+
+
+LAB_mess
+      .byte $0D,$0A,"6502 BeEhBASIC VGA ACIA 2.5 [C]old/[W]arm ?",$00
+                              ; sign on string
+ ; .org $FE06
+;   .include "bk.asm"
+
+ .org $ADD0
+      .include "bk.asm"
+
+; .org $ADD0
+  .segment "Image"
+      .incbin "C:\Projects\6502\BeEhBasic\bk.bin"
+; .org $FE06
+  .segment "BkLoad"
+      .incbin "bkmove.bin"    
+  ;
+
+ .org $FC00
+     .include "WozCall.asm"
+ 
  .org $fffa
       .segment "VECTORS"
 
       .word NMI_vec           ; NMI vector
+      ;.word NMI           ; NMI vector
       .word RES_vec           ; RESET vector
       .word IRQ_vec           ; IRQ vector
 
       .end RES_vec            ; set start at reset vector
       
+
+

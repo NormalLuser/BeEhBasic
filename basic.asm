@@ -46,11 +46,30 @@
 ;      .1 First try
 ;      .2 Try again
 ;      .3 It works!
+;      .4 Plot, CLS, COLOR added
+;      .5 Work on MOVE, IMAGE, and SMOVE
 
 ; zero page use ..
 ; the following locations are bulk initialized from StrTab at LAB_GMEM
 ; Change below so Baic does not overwrite/use BE video ram
 Ram_top           = $2000     ; end of user RAM+1 (set as needed, should be page aligned)
+; VGALine1          = $2000
+; VGAB1        = $2064
+; VGAB2        = $20E4
+; VGAB3        = $2164
+; VGAB4        = $21E4
+; VGAB5        = $2264
+; VGAB6        = $22E4
+; VGAB7        = $2364
+; VGAB8        = $23E4
+; VGAB9        = $2464
+; VGAB10       = $24E4
+; VGAB11       = $2564
+; VGAB12       = $25E4
+; VGAB13       = $2664
+; VGAB14       = $26E4
+; VGAB15       = $2764
+; VGAB16       = $27E7
 
 LAB_WARM          = $00       ; BASIC warm start entry point
 Wrmjpl            = LAB_WARM+1; BASIC warm start vector jump low byte
@@ -303,17 +322,17 @@ IrqBase           = $DF       ; IRQ handler enabled/setup/triggered flags
 
 ; *** removed unused comments for $DE-$E1
 
-;                 = $E2       ; unused
-;                 = $E3       ; unused
-;                 = $E4       ; unused
-;                 = $E5       ; unused
-;                 = $E6       ; unused
-;                 = $E7       ; unused
-;                 = $E8       ; unused
-;                 = $E9       ; unused
-;                 = $EA       ; unused
+VGAClock          = $E2       ; unused
+SpriteMove        = $E3       ; unused
+CurPixX           = $E4       ; unused
+CurPixY           = $E5       ; unused
+OldPixX           = $E6       ; unused
+OldPixY           = $E7       ; unused
+OldPixC           = $E8       ; MOVE Old Color
+OldPixL           = $E9       ; MOVE Old Pixel Location
+OldPixH           = $EA       ; MOVE
 BackColor         = $EB       ; unused
-PlotColor         = $EC       ; unused
+PlotColor         = $EC       ; Color for plot function 
 Screen            = $ED       ; unused
 ScreenH           = $EE       ; unused
 
@@ -358,7 +377,8 @@ TK_CALL           = TK_DOKE+1       ; CALL token
 TK_DO             = TK_CALL+1       ; DO token
 TK_LOOP           = TK_DO+1         ; LOOP token
 TK_PLOT           = TK_LOOP+1       ; PLOT token
-TK_PRINT          = TK_PLOT+1       ; PRINT token
+TK_GFX           = TK_PLOT+1       ; PLOT token
+TK_PRINT          = TK_GFX+1       ; PRINT token
 TK_CONT           = TK_PRINT+1      ; CONT token
 TK_LIST           = TK_CONT+1       ; LIST token
 TK_CLEAR          = TK_LIST+1       ; CLEAR token
@@ -369,9 +389,11 @@ TK_SWAP           = TK_GET+1        ; SWAP token
 TK_BITSET         = TK_SWAP+1       ; BITSET token
 TK_BITCLR         = TK_BITSET+1     ; BITCLR token
 TK_CLS            = TK_BITCLR+1     ; CLS
-TK_COLOR          = TK_CLS+1        ;COLOR
-TK_IRQ            = TK_COLOR+1     ; IRQ token
+TK_COLOR          = TK_CLS+1        ; COLOR
+TK_MOVE           = TK_COLOR+1      ; MOVE
+TK_IRQ            = TK_MOVE+1;= TK_MOVE+1       ; IRQ token
 TK_NMI            = TK_IRQ+1        ; NMI token
+
 
 ; secondary command tokens, can't start a statement
 
@@ -380,6 +402,9 @@ TK_ELSE           = TK_TAB+1        ; ELSE token
 TK_TO             = TK_ELSE+1       ; TO token
 TK_FN             = TK_TO+1         ; FN token
 TK_SPC            = TK_FN+1         ; SPC token
+
+
+
 TK_THEN           = TK_SPC+1        ; THEN token
 TK_NOT            = TK_THEN+1       ; NOT token
 TK_STEP           = TK_NOT+1        ; STEP token
@@ -530,6 +555,21 @@ TabLoop
 
 ; set-up start values
 
+;Fifty1Ford starup values for Gfx commands.
+      ;Below is for MOVE/GFX command to have a valid starting value.
+      ;We don't want a garbage address to cause a bad RAM write at boot and
+      ;we also don't want to slow down the draw code by checking for a vaild address.
+      ;This is a offscreen location top right. We won't bother with setting
+      ;the prior PLOT/Draw color as we don't care what gets written here.
+      LDA #$65
+      STA OldPixL
+      LDA #$20
+      STA OldPixH
+      LDA #$65
+      STA Screen
+      LDA #$20
+      STA ScreenH
+;Stock EhBasic
       LDA   #$00              ; clear A
       STA   NmiBase           ; clear NMI handler enabled flag
       STA   IrqBase           ; clear IRQ handler enabled flag
@@ -3395,7 +3435,7 @@ LAB_1C25
 ; happens the RTS at the end of this routine, or the end of the preprocess routine, calls
 ; the function code
 
-; this also removes some less than elegant code that was used to bypass type checking
+; this also reMOVES some less than elegant code that was used to bypass type checking
 ; for functions that returned strings
 
 LAB_1C27
@@ -7985,87 +8025,6 @@ LAB_2CF4
                               ; clear carry if byte = "0"-"9"
 LAB_2D05
       RTS
-
-
-
-LAB_PLOT
-      JSR   LAB_GADB          ; get two parameters for POKE or WAIT
-      TXA                     ; A IS ROW 0-63
-      LDY Itempl              ; Y IS COLUMN 0-99
-      LDX PlotColor           ; X IS COLOR
-      ;Maybe I should add bounds checks. or not....
-      ASL
-      PHX
-      TAX
-      LDA HLINES,X
-      STA Screen
-      INX
-      LDA HLINES,X
-      STA ScreenH
-      PLX
-      TXA
-      STA (Screen),Y
-      RTS
-LAB_COLOR
-      PHP
-      PHA
-      PHX
-      PHY
-      lda #$00 ;set our destination memory to copy to, $2000
-      sta Screen
-      lda #$20
-      sta ScreenH
-      ldy #$00 ;reset x and y for our loop
-      ;lda #$4
-      JSR LAB_GTBY ;get byte
-      TXA ;Guess it is in x
-      LDX #32 ;32 'lines' as each line is 255 IE 2 lines each
-LoopCOLOR: ;Image loop
-      sta (Screen),Y ;indirect index dest memory address, starting at $00
-      INY
-      bne LoopCOLOR ;loop until our dest goes over 255
-      inc ScreenH   ;increment high order dest memory address, starting at $60
-      DEX
-      bne LoopCOLOR ;if we're not there yet, loop
-      PLY
-      PLX
-      PLA
-      PLP
-      RTS
-
-LAB_CLS
-      PHP
-      PHA
-      PHX
-      PHY
-      LDX #32 ;32 'lines' as each line is 255 IE 2 lines each
-      lda #$00 ;set our destination memory to copy to, $2000, WRAM
-      sta Screen
-      lda #$20
-      sta ScreenH
-      ldy #$00 ;reset x and y for our loop
-      lda #$00
-LoopCLS: ;Image loop
-      sta (Screen),Y ;indirect index dest memory address, starting at $00
-      INY
-      bne LoopCLS ;loop until our dest goes over 255
-      inc ScreenH ;increment high order dest memory address, starting at $60
-      DEX
-      bne LoopCLS ;if we're not there yet, loop
-      PLY
-      PLX
-      PLA
-      PLP
-      RTS
- 
-
-
- HLINES:
-    .WORD $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380,$2400,$2480,$2500,$2580,$2600,$2680,$2700,$2780
-    .WORD $2800,$2880,$2900,$2980,$2A00,$2A80,$2B00,$2B80,$2C00,$2C80,$2D00,$2D80,$2E00,$2E80,$2F00,$2F80
-    .WORD $3000,$3080,$3100,$3180,$3200,$3280,$3300,$3380,$3400,$3480,$3500,$3580,$3600,$3680,$3700,$3780
-    .WORD $3800,$3880,$3900,$3980,$3A00,$3A80,$3B00,$3B80,$3C00,$3C80,$3D00,$3D80,$3E00,$3E80,$3F00,$3F80
-
 ; page zero initialisation table $00-$12 inclusive
 StrTab
       .byte $4C               ; JMP opcode
@@ -8085,12 +8044,433 @@ StrTab
       .word Ram_base          ; start of user RAM
 EndTab
 
+
+LAB_PLOT;Fifty1Ford
+      ;Maybe I should add bounds checks??
+      ;It is faster without, but I find that I keep doing
+      ;bounds checking in slow BASIC. So maybe I should do it here.
+      ;It is also handy to 'park' stuff off screen anyway.
+      ;Maybe someday
+      
+
+      JSR LAB_GADB            ; get two parameters for POKE or WAIT
+      TXA                     ; A IS ROW 0-63
+      LDY Itempl              ; Y IS COLUMN 0-99
+      LDX PlotColor           ; X IS COLOR
+      ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each. 
+      PHX                     ;Put X in stack
+      TAX                     ;Move doubled row count to A
+      LDA HLINES,X            ;
+      STA Screen
+      INX
+      LDA HLINES,X
+      STA ScreenH
+      PLX               ;PULL X FROM STACK, REPLACE WITH PLA AND REMOVE BELOW?
+      TXA               ;MOVE COLOR FROM X TO A
+      STA (Screen),Y    ;STORE COLOR INTO LINE OFFSET BY ROW COUNT IN Y
+      RTS
+
+
+
+
+LAB_COLOR;Fifty1Ford
+      lda #$00 ;set our destination memory to copy to, $2000
+      sta Screen
+      lda #$20
+      sta ScreenH
+      ldy #$00 ;reset x and y for our loop
+      ;lda #$4
+      JSR LAB_GTBY ;get byte
+      TXA ;Guess it is in x
+      LDX #32 ;32 'lines' as each line is 255 IE 2 lines each
+LoopCOLOR ;Image loop
+      sta (Screen),Y ;indirect index dest memory address, starting at $00
+      INY
+      bne LoopCOLOR ;loop until our dest goes over 255
+      inc ScreenH   ;increment high order dest memory address, starting at $60
+      DEX
+      bne LoopCOLOR ;if we're not there yet, loop
+      RTS
+
+LAB_CLS
+;Fifty1Ford orgional clear
+;90,421 cycycles also clears off screen area
+      LDX #32 ;32 'lines' as each line is 255 IE 2 lines each
+      lda #$00 ;set our destination memory to copy to, $2000, WRAM
+      sta Screen
+      lda #$20
+      sta ScreenH
+      ldy #$00 ;reset x and y for our loop
+      lda #$00
+LoopCLS ;Image loop
+      sta (Screen),Y ;indirect index dest memory address, starting at $00
+      INY
+      bne LoopCLS ;loop until our dest goes over 255
+      inc ScreenH ;increment high order dest memory address, starting at $60
+      DEX
+      bne LoopCLS ;if we're not there yet, loop
+      RTS
+
+
+LAB_MOVE;Fifty1Ford
+      ;We init up top in cold boot area to make sure we don't have garbage address.
+      ;otherwise we would need to check here and slow it down each pixel.
+      ;I'll add a PUT command so we can give an inital location and avoid junking 
+      ;up the screen on a CLS or redraw
+
+      ;LOAD OLD PIXEL ADDRESS AND COLOR
+      LDY OldPixY
+      LDA OldPixC
+      ;I really need to change the logic to check for move.
+      ;While the check wastes cycles compaired to doing a blind copy and redraw,
+      ;since I don't have a VGA Blanking IRQ I can't time the update to avoid
+      ;blinking if the calling code repeates the same location move.
+      ;also, with sprite of 16x16 it is worth the check..
+      
+      ;'**ERASE**' PIXEL WITH OLD COLOR
+      STA (OldPixL),Y
+      
+      ;PLOT NEW PIXEL
+      JSR   LAB_GADB          ; get two parameters for POKE or WAIT
+      TXA                     ; A IS ROW 0-63
+      LDY Itempl              ; Y IS COLUMN 0-99
+      LDX PlotColor           ; X IS COLOR
+      ;Maybe I should add bounds checks. or not....
+      ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each. 
+      
+      PHX                     ;Put X in stack
+      
+      TAX                     ;Move doubled row count to A
+      LDA HLINES,X            ;
+      STA OldPixL;ScreenLow byte
+      INX
+      LDA HLINES,X
+      STA OldPixH;ScreenHight byte
+      
+      LDA (OldPixL),Y   ;Get existing color
+      
+      STA OldPixC       ;Save the existing color for later
+      
+      PLX               ;PULL X FROM STACK, REPLACE WITH PLA AND REMOVE BELOW?
+      
+      TXA               ;MOVE COLOR FROM X TO A
+      
+      ;*** DRAW ***
+      STA (OldPixL),Y ;(Screen),Y    ;STORE COLOR INTO LINE OFFSET BY ROW COUNT IN Y
+      ;SAVE PIXEL AS OLD PIXEL ADDRESS AND COLOR
+      STY OldPixY
+      RTS
+
+
+
+
+;************ GFX ******************
+
+LAB_GFX:
+      ;WHAT IS CAUSING WIERD 1 PIXEL STEP ON TOP ROW?
+      ;WHY ARE ONLY EVEN ROWS WORKING? 
+      JSR   LAB_GADB          ; get two parameters from basic for POKE or WAIT
+      TXA                     ; A IS ROW 0-63
+      ;Maybe I should add bounds checks. or not....
+      ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each. 
+      TAX                     ;Move doubled row count to A
+      LDA HLINES,X            ;
+      STA Screen ;ScreenLow byte
+      INX
+      LDA HLINES,X
+      STA Screen + 1;ScreenHight byte
+      
+      
+
+
+    LDX #21;each line is 255 IE 2 lines each
+    ;CLEAN THE BELOW UP AFTER ZERO PAGE FIGURED OUT
+    lda $E5
+    sta SpriteMove ;$FB
+    lda $E6 
+    sta SpriteMove + 1 ;$FC
+
+    LDA Screen
+    CMP #$80
+    BEQ ODD ;reg_was_80
+
+    
+      ;*** DRAW ***
+     
+
+EVEN:
+    LDA Itempl ; COLUMN 0-99 y in x/y
+    ADC Screen
+    STA Screen
+TOPE:
+    LDY #42
+    ;JSR CopyRow
+CopyRow:
+    lda (SpriteMove),Y ;indirect index source memory address
+    sta (Screen),Y ;indirect index dest memory address
+    DEY
+    bne CopyRow ;Loop
+
+    CLC
+    lda #128 
+    ADC Screen
+    sta Screen
+    CLC
+    lda #128
+    ADC SpriteMove
+    sta SpriteMove
+    
+    
+    LDY #42
+    ;JSR CopyRow
+CopyRow2:
+    lda (SpriteMove),Y ;indirect index source memory address
+    sta (Screen),Y ;indirect index dest memory address
+    DEY
+    bne CopyRow2 ;Loop
+
+    inc SpriteMove + 1 ;increment high order source memory address, starting at $80
+    inc Screen + 1 ;increment high order dest memory address, starting at $60
+    CLC
+    lda #128
+    ADC Screen
+    sta Screen
+    CLC
+    lda #128
+    ADC SpriteMove
+    sta SpriteMove
+    DEX
+    BNE TOPE
+    RTS ;BRA DONE
+  
+ODD:
+    LDA Itempl ; COLUMN 0-99 y in x/y
+    ADC Screen
+    STA Screen
+    DEC Screen
+TOPO:
+    LDY #42
+    ;JSR CopyRow
+CopyRow3:
+    lda (SpriteMove),Y ;indirect index source memory address
+    sta (Screen),Y ;indirect index dest memory address
+    DEY
+    bne CopyRow3 ;Loop
+
+    inc Screen + 1 ;increment high order dest memory address, starting at $60
+    CLC
+    lda #128 
+    ADC Screen
+    sta Screen
+    CLC
+    lda #128
+    ADC SpriteMove
+    sta SpriteMove
+    
+    
+    LDY #42
+    ;JSR CopyRow
+CopyRow4:
+    lda (SpriteMove),Y ;indirect index source memory address
+    sta (Screen),Y ;indirect index dest memory address
+    DEY
+    bne CopyRow4 ;Loop
+
+    inc SpriteMove + 1 ;increment high order source memory address, starting at $80
+    ;inc Screen + 1 ;increment high order dest memory address, starting at $60
+    CLC
+    lda #128
+    ADC Screen
+    sta Screen
+    CLC
+    lda #128
+    ADC SpriteMove
+    sta SpriteMove
+    DEX
+    BNE TOPO
+    RTS;BRA DONE
+
+; DONE:
+;     RTS
+;     RTS
+; CopyRow:
+;     lda (SpriteMove),Y ;indirect index source memory address
+;     sta (Screen),Y ;indirect index dest memory address
+;     DEY
+;     bne CopyRow ;Loop
+;     RTS
+      
+
+; TOP:
+;     LDY #42
+;     JSR CopyRow
+    
+;     lda #127 
+;     ADC Screen
+;     sta Screen
+    
+;     lda #128
+;     ADC SpriteMove
+;     sta SpriteMove
+    
+    
+;     LDY #42
+;     JSR CopyRow
+;     inc SpriteMove + 1 ;increment high order source memory address, starting at $80
+;     inc Screen + 1 ;increment high order dest memory address, starting at $60
+;     lda #128
+;     ADC Screen
+;     sta Screen
+;     lda #127
+;     ADC SpriteMove
+;     sta SpriteMove
+;     DEX
+;     BNE TOP
+
+;*****************************************************
+
+
+HLINES:
+    .WORD $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380,$2400,$2480,$2500,$2580,$2600,$2680,$2700,$2780
+    .WORD $2800,$2880,$2900,$2980,$2A00,$2A80,$2B00,$2B80,$2C00,$2C80,$2D00,$2D80,$2E00,$2E80,$2F00,$2F80
+    .WORD $3000,$3080,$3100,$3180,$3200,$3280,$3300,$3380,$3400,$3480,$3500,$3580,$3600,$3680,$3700,$3780
+    .WORD $3800,$3880,$3900,$3980,$3A00,$3A80,$3B00,$3B80,$3C00,$3C80,$3D00,$3D80,$3E00,$3E80,$3F00,$3F80
+    ;A EASY FIX FOR A 'OFF SCREEN WRAP' WITHOUT DOING ANY CHECKS     
+    .WORD $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380,$2400,$2480,$2500,$2580,$2600,$2680,$2700,$2780
+    .WORD $2800,$2880,$2900,$2980,$2A00,$2A80,$2B00,$2B80,$2C00,$2C80,$2D00,$2D80,$2E00,$2E80,$2F00,$2F80
+    .WORD $3000,$3080,$3100,$3180,$3200,$3280,$3300,$3380,$3400,$3480,$3500,$3580,$3600,$3680,$3700,$3780
+    .WORD $3800,$3880,$3900,$3980,$3A00,$3A80,$3B00,$3B80,$3C00,$3C80,$3D00,$3D80,$3E00,$3E80,$3F00,$3F80 
+;     ;NOW ANYTHING MORE THAN 26 WILL 'SCROLL' UP TO 255 ROWS. 
+;     .WORD $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380,$2400,$2480,$2500,$2580,$2600,$2680,$2700,$2780
+;     .WORD $2800,$2880,$2900,$2980,$2A00,$2A80,$2B00,$2B80,$2C00,$2C80,$2D00,$2D80,$2E00,$2E80,$2F00,$2F80
+;     .WORD $3000,$3080,$3100,$3180,$3200,$3280,$3300,$3380,$3400,$3480,$3500,$3580,$3600,$3680,$3700,$3780
+;     .WORD $3800,$3880,$3900,$3980,$3A00,$3A80,$3B00,$3B80,$3C00,$3C80,$3D00,$3D80,$3E00,$3E80,$3F00,$3F80 
+;     ;ALLOWS PLAYFIELD SCROLL TO TOP
+;     .WORD $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380,$2400,$2480,$2500,$2580,$2600,$2680,$2700,$2780
+;     .WORD $2800,$2880,$2900,$2980,$2A00,$2A80,$2B00,$2B80,$2C00,$2C80,$2D00,$2D80,$2E00,$2E80,$2F00,$2F80
+;     .WORD $3000,$3080,$3100,$3180,$3200,$3280,$3300,$3380,$3400,$3480,$3500,$3580,$3600,$3680,$3700,$3780
+;     .WORD $3800,$3880,$3900,$3980,$3A00,$3A80,$3B00,$3B80,$3C00,$3C80,$3D00,$3D80,$3E00,$3E80,$3F00,$3F80 
+    
+
+; BLINES:
+;     .WORD $2064,$20E4,$2164,$21E4,$2264,$22E4,$2364,$23E4,$2464,$24E4,$2564,$25E4,$2664,$26E4,$2764,$27E4
+;     .WORD $2864,$28E4,$2964,$29E4,$2A64,$2AE4,$2B64,$2BE4,$2C64,$2CE4,$2D64,$2DE4,$2E64,$2EE4,$2F64,$2FE4
+;     .WORD $3064,$30E4,$3164,$31E4,$3264,$32E4,$3364,$33E4,$3464,$34E4,$3564,$35E4,$3664,$36E4,$3764,$37E4
+;     .WORD $3864,$38E4,$3964,$39E4,$3A64,$3AE4,$3B64,$3BE4,$3C64,$3CE4,$3D64,$3DE4,$3E64,$3EE4,$3F64,$3FE4 
+
+
+
+
+
+
+
+
+; SPRITEDATA:
+;     .BYTE 01,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 02,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 03,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 04,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 05,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 06,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 07,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 08,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 09,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 10,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 11,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 12,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 13,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 14,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 15,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+;     .BYTE 16,02,03,04,05,06,07,08,09,10,11,12,13,14,15,16
+
+;  SPRITEDATA:
+;      .BYTE 48,64,64,64,64,64,64,64,64,64,64,64,64,64,64,48
+;      .BYTE 64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64
+;      .BYTE 64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64
+;      .BYTE 64,64,64,64,64,64,12,64,64,64,64,64,64,64,64,64
+;      .BYTE 64,64,64,64,64,64,12,64,64,64,64,64,64,64,64,64
+;      .BYTE 64,64,64,64,64,64,12,64,64,64,64,64,64,64,64,64
+;      .BYTE 64,64,64,64,64,64,12,64,64,64,63,63,63,63,64,64
+;      .BYTE 64,64,64,64,11,11,11,11,11,64,64,64,64,64,64,64
+;      .BYTE 64,64,64,64,64,64,12,64,64,64,63,63,63,63,64,64
+;      .BYTE 64,64,64,64,64,64,12,64,64,64,64,64,64,64,64,64
+;      .BYTE 64,64,64,64,64,64,12,64,64,64,64,64,64,64,64,64
+;      .BYTE 64,64,64,64,64,64,12,64,64,64,64,64,64,64,64,64
+;      .BYTE 64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64
+;      .BYTE 64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64
+;      .BYTE 64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64
+;      .BYTE 48,64,64,64,64,64,64,64,64,64,64,64,64,64,64,48
+
+LAB_PUT;Fifty1Ford
+      ;
+      ;We need to LOAD OLD PIXEL ADDRESS AND COLOR and plot
+      ;So we dont end up putting garbage pixel on screen in case something changes in 'background'
+      ;******Edit this
+      LDA OldPixC
+      ;'ERASE' PIXEL WITH OLD COLOR
+      LDY OldPixY
+      STA (OldPixL),Y
+      ;PLOT NEW PIXEL
+      JSR   LAB_GADB          ; get two parameters for POKE or WAIT
+      TXA                     ; A IS ROW 0-63
+      LDY Itempl              ; Y IS COLUMN 0-99
+      LDX PlotColor           ; X IS COLOR
+      ;Maybe I should add bounds checks. or not....
+      ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each. 
+      PHX                     ;Put X in stack
+      TAX                     ;Move doubled row count to A
+      LDA HLINES,X            ;
+      STA OldPixL;Screen
+      INX
+      LDA HLINES,X
+      STA OldPixH;ScreenH
+      LDA (OldPixL),Y   ;Get existinh color
+      STA OldPixC       ;Save the existing color for later
+      PLX               ;PULL X FROM STACK, REPLACE WITH PLA AND REMOVE BELOW?
+      TXA               ;MOVE COLOR FROM X TO A
+      STA (OldPixL),Y ;(Screen),Y    ;STORE COLOR INTO LINE OFFSET BY ROW COUNT IN Y
+      ;SAVE PIXEL AS OLD PIXEL ADDRESS AND COLOR
+      STY OldPixY
+      RTS
+LAB_SPRITE;Fifty1Ford
+      ;So, lets move somthing bigger
+      ;need to keep more data..
+      ;
+      ;******Edit this
+      LDA OldPixC
+      ;'ERASE' PIXEL WITH OLD COLOR
+      LDY OldPixY
+      STA (OldPixL),Y
+      ;PLOT NEW PIXEL
+      JSR   LAB_GADB          ; get two parameters for POKE or WAIT
+      TXA                     ; A IS ROW 0-63
+      LDY Itempl              ; Y IS COLUMN 0-99
+      LDX PlotColor           ; X IS COLOR
+      ;Maybe I should add bounds checks. or not....
+      ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each. 
+      PHX                     ;Put X in stack
+      TAX                     ;Move doubled row count to A
+      LDA HLINES,X            ;
+      STA OldPixL;Screen
+      INX
+      LDA HLINES,X
+      STA OldPixH;ScreenH
+      LDA (OldPixL),Y   ;Get existinh color
+      STA OldPixC       ;Save the existing color for later
+      PLX               ;PULL X FROM STACK, REPLACE WITH PLA AND REMOVE BELOW?
+      TXA               ;MOVE COLOR FROM X TO A
+      STA (OldPixL),Y ;(Screen),Y    ;STORE COLOR INTO LINE OFFSET BY ROW COUNT IN Y
+      ;SAVE PIXEL AS OLD PIXEL ADDRESS AND COLOR
+      STY OldPixY
+      RTS
+
+
 LAB_MSZM
       .byte $0D,$0A,"Memory size <Enter> for default with VGA, 16384 for max NO VGA",$00
 
 LAB_SMSG
       .byte " Bytes free",$0D,$0A,$0A
-      .byte "BE 6502 Enhanced BASIC 2.22p5 -VGA -P",$0A,$00
+      .byte "BE 6502 Enhanced BASIC 2.3 -VGA -P",$0A,$00
 
 ; numeric constants and series
 
@@ -8241,6 +8621,7 @@ LAB_CTBL
       .word LAB_DO-1          ; DO              new command
       .word LAB_LOOP-1        ; LOOP            new command
       .word LAB_PLOT-1        ; PLOT
+      .word LAB_GFX-1         ; GFX SPRITE
       .word LAB_PRINT-1       ; PRINT
       .word LAB_CONT-1        ; CONT
       .word LAB_LIST-1        ; LIST
@@ -8251,10 +8632,12 @@ LAB_CTBL
       .word LAB_SWAP-1        ; SWAP            new command
       .word LAB_BITSET-1      ; BITSET          new command
       .word LAB_BITCLR-1      ; BITCLR          new command
-      .word LAB_CLS-1      ; BITCLR          new command
-      .word LAB_COLOR-1      ; BITCLR          new command
+      .word LAB_CLS-1         ; BITCLR          new command
+      .word LAB_COLOR-1       ; BITCLR          new command
+      .word LAB_MOVE-1        ; MOVE  MOVE PIXEL
       .word LAB_IRQ-1         ; IRQ             new command
       .word LAB_NMI-1         ; NMI             new command
+     
 
 ; function pre process routine table
 
@@ -8539,6 +8922,8 @@ LBB_FRE
 TAB_ASCG
 LBB_GET
       .byte "ET",TK_GET       ; GET
+LBB_GFX
+      .byte "FX",TK_GFX       ; GET
 LBB_GOSUB
       .byte "OSUB",TK_GOSUB   ; GOSUB
 LBB_GOTO
@@ -8586,7 +8971,11 @@ LBB_MIDS
       .byte "ID$(",TK_MIDS    ; MID$(
 LBB_MIN
       .byte "IN(",TK_MIN      ; MIN(
-      .byte $00
+
+LBB_MOVE
+       .byte "OVE",TK_MOVE    ; MOVE
+       .byte $00
+
 TAB_ASCN
 LBB_NEW
       .byte "EW",TK_NEW       ; NEW
@@ -8617,7 +9006,7 @@ LBB_POKE
 LBB_POS
       .byte "OS(",TK_POS      ; POS(
 LBB_PLOT
-      .byte "LOT",TK_PLOT   ; PRINT
+      .byte "LOT",TK_PLOT    ; PLOT
       ;.byte $00
 LBB_PRINT
       .byte "RINT",TK_PRINT   ; PRINT
@@ -8645,6 +9034,7 @@ LBB_RUN
       .byte "UN",TK_RUN       ; RUN
       .byte $00
 TAB_ASCS
+
 LBB_SADD
       .byte "ADD(",TK_SADD    ; SADD(
 LBB_SAVE
@@ -8655,6 +9045,7 @@ LBB_SIN
       .byte "IN(",TK_SIN      ; SIN(
 LBB_SPC
       .byte "PC(",TK_SPC      ; SPC(
+          
 LBB_SQR
       .byte "QR(",TK_SQR      ; SQR(
 LBB_STEP
@@ -8750,6 +9141,7 @@ LAB_KEYT
       .word LBB_REM           ; REM
       .byte 4,'S'
       .word LBB_STOP          ; STOP
+
       .byte 2,'O'
       .word LBB_ON            ; ON
       .byte 4,'N'
@@ -8775,7 +9167,10 @@ LAB_KEYT
       .byte 4,'L'
       .word LBB_LOOP          ; LOOP
       .byte 4,'P'
-      .word LBB_PLOT         ; PRINT
+      .word LBB_PLOT         ; PLOT
+      .byte 3,'G'
+      .word LBB_GFX         ; GFX SPRITE
+
       .byte 5,'P'
       .word LBB_PRINT         ; PRINT
       .byte 4,'C'
@@ -8800,11 +9195,13 @@ LAB_KEYT
       .word LBB_CLS           ; CLS
       .byte 5,'C'
       .word LBB_COLOR         ; COLOR
+      .byte 4,'M'
+      .word LBB_MOVE         ; MOVE
       .byte 3,'I'
       .word LBB_IRQ           ; IRQ
       .byte 3,'N'
       .word LBB_NMI           ; NMI
-
+   
 ; secondary commands (can't start a statement)
 
       .byte 4,'T'
@@ -8817,6 +9214,8 @@ LAB_KEYT
       .word LBB_FN            ; FN
       .byte 4,'S'
       .word LBB_SPC           ; SPC
+
+    
       .byte 4,'T'
       .word LBB_THEN          ; THEN
       .byte 3,'N'
@@ -8931,7 +9330,7 @@ LAB_KEYT
       .word LBB_RIGHTS        ; RIGHT$
       .byte 5,'M'             ;
       .word LBB_MIDS          ; MID$
-
+      
 ; BASIC messages, mostly error messages
 
 LAB_BAER
@@ -8997,3 +9396,1629 @@ LAB_IMSG    .byte " Extra ignored",$0D,$0A,$00
 LAB_REDO    .byte " Redo from start",$0D,$0A,$00
 
 AA_end_basic
+
+
+
+
+
+; LAB_GFX
+
+; ;LOAD OLD PIXEL ADDRESS AND COLOR
+;     LDY OldPixY
+;     LDX OldPixX
+;     LDA $EC  
+; ;>>SPEED CLEAR   
+;       ;1 BLANK
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;2 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;3 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;4 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;5 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;6 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;7 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;8 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;9 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;10 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;11 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;12 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;13 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;14 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;15 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;       ;16 BLANK
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY OldPixY;LDY #0
+;             LDA $EC  
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+
+
+; ;'**ERASE**' PIXEL WITH OLD COLOR
+; ;       ;STA (OldPixL),Y
+; ;       ;Erase rest here  
+
+; ;       ;PLOT NEW PIXEL
+
+
+; ;**uncomment for BASIC**      
+;       JSR   LAB_GADB          ; get two parameters for POKE or WAIT
+;       TXA                     ; A IS ROW 0-63
+;      ;LDY Itempl              ; Y IS COLUMN 0-99
+;      ;LDX PlotColor           ; X IS COLOR
+;      ;LDA #20                     ; A IS ROW 0-63
+;      ;LDY #20 ;Itempl              ; Y IS COLUMN 0-99
+      
+;       ;Maybe I should add bounds checks. or not....
+;       ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each.       
+;       STA OldPixX ;TAX                     ;Move doubled row count to X
+;       ;STX OldPixX
+ 
+
+
+
+;       LDX OldPixX
+;       LDA HLINES,X            ;
+;       STA OldPixL;ScreenLow byte
+;       STA Screen
+;       INX
+;       LDA HLINES,X
+;       STA OldPixH;ScreenHight byte
+;       STA ScreenH
+
+;       ;SAVE PIXEL AS OLD PIXEL ADDRESS AND COLOR
+;       LDY Itempl              ; Y IS COLUMN 0-99
+;       STY OldPixY
+
+; ;>>SPRITE DRAW       
+;       ;1 BLACK LINE
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+;             INY
+;             STA (OldPixL),Y
+
+;       ;2
+
+            
+            
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl;LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$15
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$15
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$15
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+            
+;       ;3
+
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl;LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$35
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+      
+;       ;4
+
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl; LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$35
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$35
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+            
+;       ;5
+
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl;LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$35
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$35
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$35
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+            
+;       ;6
+
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl;LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$15
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$15
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;       ;7
+
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl; LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+            
+;       ;8
+
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl;LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$15
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$06
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$17
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$17
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+            
+;       ;9
+
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl;LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$15
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$06
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$06
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$06
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+            
+;       ;10
+
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl;LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$2A
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+            
+;       ;11
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl;LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$15
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$15
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+            
+;       ;12
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl;LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$35
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$35
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$35
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+            
+            
+;       ;13
+            
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl;LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$35
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$35
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+            
+            
+;       ;14
+            
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl;LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$35
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+      
+;       ;15
+;             INX
+;             LDA HLINES,X            ;
+;             STA OldPixL;ScreenLow byte
+;             INX
+;             LDA HLINES,X
+;             STA OldPixH;ScreenHight byte
+;             LDY Itempl;LDY #0
+
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$30
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$15
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$15
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$15
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+;             LDA #$00
+;             STA (OldPixL),Y
+;             INY
+      
+;       ;16 BLACK LINE
+
+;         INX
+;         LDA HLINES,X            ;
+;         STA OldPixL;ScreenLow byte
+;         INX
+;         LDA HLINES,X
+;         STA OldPixH;ScreenHight byte
+;         LDY Itempl;LDY #0
+
+;         LDA #$00
+
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+;         INY
+;         STA (OldPixL),Y
+
