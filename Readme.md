@@ -4,7 +4,7 @@
 **Update!**
 ** Now with Transparent Sprite command GFXT
 
-![Sprites](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/TransparentSprites.jpg) 
+![Sprites](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/TransparentSprites.gif) 
 
 
 Here is a little demo of what it can do:
