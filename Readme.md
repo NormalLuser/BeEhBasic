@@ -4,17 +4,27 @@
 **Update!**
 ** Now with Transparent Sprite command GFXT
 
+![Sprites](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/TransparentSprites.jpg) 
+
 
 Here is a little demo of what it can do:
 
 0 C=RND(0)*63:POKE$EB,C:R=0:COLOR C
+
 1 ?"7 Transparent Sprites":X=1:Y=1:DX=1:DY=1:R=0:S=0
+
 2 DO:DOKE$E5,$AE00:GFXTX,Y:GFXTX+18,30-Y:DOKE$E5,$AE11
+
 3 GFXT59-X,46-Y:GFXT59-X,Y:DOKE$E5,$AE51:GFXTX,42
+
 4 DOKE$E5,$B700:GFXT84,Y/2+35:GFXT84,16-Y/2:Y=Y+DY:X=X+DX
+
 5 IFX<=1ORX>=50THENDX=-DX:INCR
+
 6 IFY<=0ORY>=16THENDY=-DY
+
 7 IFR=2THENR=0:C=RND(0)*63:POKE$EB,C:COLOR C
+
 8 LOOP
 
 
