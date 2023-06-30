@@ -53,7 +53,10 @@
 ; the following locations are bulk initialized from StrTab at LAB_GMEM
 ; Change below so Baic does not overwrite/use BE video ram
 Ram_top           = $2000     ; end of user RAM+1 (set as needed, should be page aligned)
+Display           = $2000     ;Start of memory mapped display. 100x64 mapped to 128x64
+                              ;IE, 2 lines for each high order address
 ; VGALine1          = $2000
+; Buffer 'off screen' area of video ram. 
 ; VGAB1        = $2064
 ; VGAB2        = $20E4
 ; VGAB3        = $2164
@@ -321,20 +324,24 @@ IrqBase           = $DF       ; IRQ handler enabled/setup/triggered flags
 ;                 = $E1       ; IRQ handler addr high byte
 
 ; *** removed unused comments for $DE-$E1
+;**************************************************************************
+
 
 VGAClock          = $E2       ; IF NMI hooked up to vsync this will inc. Might have issues at the moment, leave disconnected.
-SpriteMove        = $E3       ; 
-CurPixX           = $E4       ; 
-CurPixY           = $E5       ; 
-OldPixX           = $E6       ; 
-OldPixY           = $E7       ; 
+SpriteW           = $E3       ; Sprite Width
+SpriteH           = $E4       ; Sprite Height
+SpriteImage       = $E5       ; Location of sprite in memory
+SpriteImageH      = $E6       ; to draw FROM     -was OldPixX
+OldPixY           = $E7       ; MOVE Old Pixel Location y offset
 OldPixC           = $E8       ; MOVE Old Color
 OldPixL           = $E9       ; MOVE Old Pixel Location
-OldPixH           = $EA       ; MOVE
-BackColor         = $EB       ; 
+OldPixH           = $EA       ; MOVE memory address/ROW
+BackColor         = $EB       ; Background/Color command color
 PlotColor         = $EC       ; Color for plot function 
 Screen            = $ED       ; GFX screen location
-ScreenH           = $EE       ; 
+ScreenH           = $EE       ; to draw TO
+
+
 
 Decss             = $EF       ; number to decimal string start
 Decssp1           = Decss+1   ; number to decimal string start
@@ -377,9 +384,13 @@ TK_CALL           = TK_DOKE+1       ; CALL token
 TK_DO             = TK_CALL+1       ; DO token
 TK_LOOP           = TK_DO+1         ; LOOP token
 TK_PLOT           = TK_LOOP+1       ; PLOT token
-TK_GFXS           = TK_PLOT+1       ; PLOT token
-TK_GFXT           = TK_GFXS+1       ; PLOT token
-TK_GFX            = TK_GFXT+1       ; PLOT token
+TK_GFXA           = TK_PLOT+1       ; GFX Adjustable size sprite token
+TK_GFXH           = TK_GFXA+1       ; GFX HLINE FROM LAST MOVE
+TK_GFXS           = TK_GFXH+1       ; GFX Small Sprite token
+TK_GFXT           = TK_GFXS+1       ; GFX Transparent Sprite token
+TK_GFX            = TK_GFXT+1       ; GFX Basic Sprite token
+;TK_HLINE          = TK_GFX+1       ; GFX Basic Sprite token
+;TK_PRINT          = TK_HLINE+1       ; PRINT token
 TK_PRINT          = TK_GFX+1       ; PRINT token
 TK_CONT           = TK_PRINT+1      ; CONT token
 TK_LIST           = TK_CONT+1       ; LIST token
@@ -390,7 +401,9 @@ TK_GET            = TK_WIDTH+1      ; GET token
 TK_SWAP           = TK_GET+1        ; SWAP token
 TK_BITSET         = TK_SWAP+1       ; BITSET token
 TK_BITCLR         = TK_BITSET+1     ; BITCLR token
-TK_CLS            = TK_BITCLR+1     ; CLS
+;TK_HLINE          = TK_BITCLR+1       ; GFX Basic Sprite token
+TK_BEEP           = TK_BITCLR+1     ; BEEP token
+TK_CLS            = TK_BEEP+1       ; CLS
 TK_COLOR          = TK_CLS+1        ; COLOR
 TK_MOVE           = TK_COLOR+1      ; MOVE
 TK_IRQ            = TK_MOVE+1;= TK_MOVE+1       ; IRQ token
@@ -563,14 +576,7 @@ TabLoop
       ;we also don't want to slow down the draw code by checking for a vaild address all the time.
       ;This is a offscreen location top right. We won't bother with setting
       ;the prior PLOT/Draw color as we don't care what gets written here?
-      LDA #$65
-      STA OldPixL
-      LDA #$20
-      STA OldPixH
-      LDA #$65
-      STA Screen
-      LDA #$20
-      STA ScreenH
+      JSR GFX_Startup
 ;Stock EhBasic
       LDA   #$00              ; clear A
       STA   NmiBase           ; clear NMI handler enabled flag
@@ -879,6 +885,11 @@ LAB_1274
       LDA   #$00              ; clear A
       STA   IrqBase           ; clear enabled byte
       STA   NmiBase           ; clear enabled byte
+      ;Fifty change here; lets quiet the beep?
+      ;Moving to CLS command. Allows BEEP to work from command line.
+      ;STZ   VIA_AUX;$600b;needs to be via address for PB7 timer
+      
+
       LDA   #<LAB_RMSG        ; point to "Ready" message low byte
       LDY   #>LAB_RMSG        ; point to "Ready" message high byte
 
@@ -8071,10 +8082,47 @@ LAB_PLOT;Fifty1Ford
       TXA               ;MOVE COLOR FROM X TO A
       STA (Screen),Y    ;STORE COLOR INTO LINE OFFSET BY ROW COUNT IN Y
       RTS
+      
+  
+      
+
+LAB_BEEP;Fifty1Ford
+      JSR LAB_GTBY ;get byte In x?          
+      TXA ;TRANSFER X TO A
+      BEQ BEEP_Off    ;if note 0 turn off beep; 
+
+      LDA  VIA_DDRB;$6002
+      ORA  #$80
+      STA  VIA_DDRB;$6002   ; Set the high bit in DDRB, to make PB7 an output.
+
+      LDA  VIA_ACR;$600b    ; Set the two high bits in the ACR to get the
+      ORA  #$C0       ; square-wave output on PB7.  (Don't enable the
+      STA  VIA_ACR;$600b     ; T1 interrupt in the IER though.)
+
+      LDA  #255       ; Set the T1 timeout period. 
+                      ;LOWER THIS TO SOMETHING LIKE 77 FOR 1MHZ CPU CLOCK 
+      STA  $6004;VIA_T1CL   ;USE 255 if the Φ2 rate is 5MHz.  To get it going, write
+      
+      
+      TXA ;BEEP IN A
+      STA $6005;VIA_T1CH
+
+      RTS
+BEEP_Off:
+        ;STZ $6002;VIA_DDRB
+        STZ $600b;VIA_ACR <<< I THINK I ONLY NEED THIS???
+        ;LDA  #255       ; Set the T1 timeout period.  $17 is for 1.946kHz 
+        ;STA  $6004;VIA_T1CL   ; if the Φ2 rate is 5MHz.  To get it going, write
+        RTS
+      
+      
 
 
 
-
+;BothColor and CLS need to be cleaned up so they 
+;don't do the offscreen area. It slows down the routine.
+;Also, we plan on using that off screen area for storing
+;sprite related data and images.
 LAB_COLOR;Fifty1Ford
       lda #$00 ;set our destination memory to copy to, $2000
       sta Screen
@@ -8084,6 +8132,7 @@ LAB_COLOR;Fifty1Ford
       ;lda #$4
       JSR LAB_GTBY ;get byte
       TXA ;Guess it is in x
+      STA BackColor ;lets store the background color
       LDX #32 ;32 'lines' as each line is 255 IE 2 lines each
 LoopCOLOR ;Image loop
       sta (Screen),Y ;indirect index dest memory address, starting at $00
@@ -8097,6 +8146,10 @@ LoopCOLOR ;Image loop
 LAB_CLS
 ;Fifty1Ford orgional clear
 ;90,421 cycycles also clears off screen area
+;ToDo change to faster version that leaves offscreen area alone.
+;ADDED BEEP CLEAR
+      STZ   VIA_AUX;$600b;needs to be via address for PB7 timer
+      
       LDX #32 ;32 'lines' as each line is 255 IE 2 lines each
       lda #$00 ;set our destination memory to copy to, $2000, WRAM
       sta Screen
@@ -8199,10 +8252,10 @@ LAB_GFX:
       
       LDX #21;each line is 255 IE 2 lines each
       ;CLEAN THE BELOW UP AFTER ZERO PAGE FIGURED OUT
-      lda $E5
-      sta SpriteMove ;$FB
-      lda $E6 
-      sta SpriteMove + 1 ;$FC
+      ; lda SpriteImage
+      ; sta SpriteMove ;$FB
+      ; lda SpriteImage + 1 
+      ; sta SpriteMove + 1 ;$FC
       
       ;See if it is an Odd row, otherwise Even routine
       LDA Screen
@@ -8217,7 +8270,7 @@ TOPE:
     LDY #42
     ;JSR CopyRow
 CopyRow:
-    lda (SpriteMove),Y ;indirect index source memory address
+    lda (SpriteImage),Y ;indirect index source memory address
     sta (Screen),Y ;indirect index dest memory address
     DEY
     bne CopyRow ;Loop
@@ -8228,18 +8281,18 @@ CopyRow:
     sta Screen
     CLC
     lda #128
-    ADC SpriteMove
-    sta SpriteMove
+    ADC SpriteImage
+    sta SpriteImage
     
     LDY #42
     ;JSR CopyRow
 CopyRow2:
-    lda (SpriteMove),Y ;indirect index source memory address
+    lda (SpriteImage),Y ;indirect index source memory address
     sta (Screen),Y ;indirect index dest memory address
     DEY
     bne CopyRow2 ;Loop
 
-    inc SpriteMove + 1 ;increment high order source memory address
+    inc SpriteImage + 1 ;increment high order source memory address
     inc Screen + 1 ;increment high order dest memory address
     CLC
     lda #128
@@ -8247,8 +8300,8 @@ CopyRow2:
     sta Screen
     CLC
     lda #128
-    ADC SpriteMove
-    sta SpriteMove
+    ADC SpriteImage
+    sta SpriteImage
     DEX
     BNE TOPE
     RTS ;BRA DONE
@@ -8262,7 +8315,7 @@ TOPO:
     LDY #42
     ;JSR CopyRow
 CopyRow3:
-    lda (SpriteMove),Y ;indirect index source memory address
+    lda (SpriteImage),Y ;indirect index source memory address
     sta (Screen),Y ;indirect index dest memory address
     DEY
     bne CopyRow3 ;Loop
@@ -8274,25 +8327,25 @@ CopyRow3:
     sta Screen
     CLC
     lda #128
-    ADC SpriteMove
-    sta SpriteMove
+    ADC SpriteImage
+    sta SpriteImage
     LDY #42
     ;JSR CopyRow
 CopyRow4:
-    lda (SpriteMove),Y ;indirect index source memory address
+    lda (SpriteImage),Y ;indirect index source memory address
     sta (Screen),Y ;indirect index dest memory address
     DEY
     bne CopyRow4 ;Loop
 
-    inc SpriteMove + 1 ;increment high order source memory address
+    inc SpriteImage + 1 ;increment high order source memory address
     CLC
     lda #128
     ADC Screen
     sta Screen
     CLC
     lda #128
-    ADC SpriteMove
-    sta SpriteMove
+    ADC SpriteImage
+    sta SpriteImage
     DEX
     BNE TOPO
     RTS;BRA DONE
@@ -8301,7 +8354,7 @@ CopyRow4:
 ;     RTS
 ;     RTS
 ; CopyRow:
-;     lda (SpriteMove),Y ;indirect index source memory address
+;     lda (SpriteImage),Y ;indirect index source memory address
 ;     sta (Screen),Y ;indirect index dest memory address
 ;     DEY
 ;     bne CopyRow ;Loop
@@ -8311,19 +8364,11 @@ CopyRow4:
 ;*****************************************************
 
 
-LAB_GFXS: ;SMALLER SPRITE
+LAB_GFXS: ;Simple Adjustable size sprite
       ;GFX Blit Routine. Fifty1Ford June 2023
-      ;CURRENTLY HARD CODED TO do a 42x42 pixel/byte blit.
-      ;assumes that image is stored with 00 low byte. 
-      ;IE $AF00 is a valid starting address for the image data.
-      ;ToDo: Make a version that has adjustable size.
-      ;ToDo: Make version self animate on draw. IE on each draw advance 1 frame.
-      ;ToDo: Make version that saves background.
-      ;ToDo: Make version that does transparency.
-      ;ToDo  Make a slower version that wraps around screen without issues.
-      ;Runs in 29,483 cycles after the parameter get. 
-      ;At 5mhz running h and v sync (1.3mhz effective)
-      ;this allows up to 44 updates/sprites to be drawn a second.
+      ;NOTE this routine changes the set draw location.
+      ;to do, restore this to org value after run.
+     
       JSR   LAB_GADB          ; get two parameters from basic for POKE or WAIT
       TXA                     ; A IS ROW 0-63
       ;Maybe I should add bounds checks? 
@@ -8340,12 +8385,12 @@ LAB_GFXS: ;SMALLER SPRITE
       LDA HLINES,X
       STA Screen + 1;ScreenHight byte
       
-      LDX #9;each line is 255 IE 2 lines each
+      LDX SpriteH;#9;each line is 255 IE 2 lines each
       ;CLEAN THE BELOW UP AFTER ZERO PAGE FIGURED OUT
-      lda $E5
-      sta SpriteMove ;$FB
-      lda $E6 
-      sta SpriteMove + 1 ;$FC
+      ; lda SpriteImage
+      ; sta SpriteMove ;$FB
+      ; lda SpriteImage + 1 
+      ; sta SpriteMove + 1 ;$FC
       
       ;See if it is an Odd row, otherwise Even routine
       LDA Screen
@@ -8357,7 +8402,7 @@ GFXS_EVEN:
     ADC Screen
     STA Screen
 GFXS_TOPE:
-    LDY #18
+    LDY SpriteW;#18
     ;JSR CopyRow
     ;Wait for vsync?
 ; GFXS_EVEN_IRQ:
@@ -8365,7 +8410,7 @@ GFXS_TOPE:
 ;     CMP $E2
 ;     BEQ GFXS_EVEN_IRQ
 GFXS_CopyRow:
-    lda (SpriteMove),Y ;indirect index source memory address
+    lda (SpriteImage),Y ;indirect index source memory address
     sta (Screen),Y ;indirect index dest memory address
     DEY
     bne GFXS_CopyRow ;Loop
@@ -8376,18 +8421,18 @@ GFXS_CopyRow:
     sta Screen
     CLC
     lda #128
-    ADC SpriteMove
-    sta SpriteMove
+    ADC SpriteImage
+    sta SpriteImage
     
-    LDY #18
+    LDY SpriteW;#18
     ;JSR CopyRow
 GFXS_CopyRow2:
-    lda (SpriteMove),Y ;indirect index source memory address
+    lda (SpriteImage),Y ;indirect index source memory address
     sta (Screen),Y ;indirect index dest memory address
     DEY
     bne GFXS_CopyRow2 ;Loop
 
-    inc SpriteMove + 1 ;increment high order source memory address
+    inc SpriteImage + 1 ;increment high order source memory address
     inc Screen + 1 ;increment high order dest memory address
     CLC
     lda #128
@@ -8395,8 +8440,8 @@ GFXS_CopyRow2:
     sta Screen
     CLC
     lda #128
-    ADC SpriteMove
-    sta SpriteMove
+    ADC SpriteImage
+    sta SpriteImage
     DEX
     BNE GFXS_TOPE
     RTS ;BRA DONE
@@ -8407,7 +8452,7 @@ GFXS_ODD:
     STA Screen ;Not sure why I need to dec by one with the Odd rows?
     DEC Screen ;But without the DEC it does not line up.
 GFXS_TOPO:
-    LDY #18
+    LDY SpriteW;#18
     ;JSR CopyRow
     ;Wait for vsync?
 ; GFXS_ODD_IRQ:
@@ -8415,7 +8460,7 @@ GFXS_TOPO:
 ;     CMP $E2
 ;     BEQ GFXS_ODD_IRQ
 GFXS_CopyRow3:
-    lda (SpriteMove),Y ;indirect index source memory address
+    lda (SpriteImage),Y ;indirect index source memory address
     sta (Screen),Y ;indirect index dest memory address
     DEY
     bne GFXS_CopyRow3 ;Loop
@@ -8427,25 +8472,25 @@ GFXS_CopyRow3:
     sta Screen
     CLC
     lda #128
-    ADC SpriteMove
-    sta SpriteMove
-    LDY #18
+    ADC SpriteImage
+    sta SpriteImage
+    LDY SpriteW;#18
     ;JSR CopyRow
 GFXS_CopyRow4:
-    lda (SpriteMove),Y ;indirect index source memory address
+    lda (SpriteImage),Y ;indirect index source memory address
     sta (Screen),Y ;indirect index dest memory address
     DEY
     bne GFXS_CopyRow4 ;Loop
 
-    inc SpriteMove + 1 ;increment high order source memory address
+    inc SpriteImage + 1 ;increment high order source memory address
     CLC
     lda #128
     ADC Screen
     sta Screen
     CLC
     lda #128
-    ADC SpriteMove
-    sta SpriteMove
+    ADC SpriteImage
+    sta SpriteImage
     DEX
     BNE GFXS_TOPO
     RTS;BRA DONE
@@ -8482,10 +8527,10 @@ LAB_GFXT: ; TRANSPARENTCY SMALLER SPRITE
       
       LDX #9;each line is 255 IE 2 lines each
       ;CLEAN THE BELOW UP AFTER ZERO PAGE FIGURED OUT
-      lda $E5
-      sta SpriteMove ;$FB
-      lda $E6 
-      sta SpriteMove + 1 ;$FC
+      ; lda SpriteImage
+      ; sta SpriteImage ;$FB
+      ; lda SpriteImage + 1 
+      ; sta SpriteImage + 1 ;$FC
       
       ;See if it is an Odd row, otherwise Even routine
       LDA Screen
@@ -8500,7 +8545,7 @@ GFXT_TOPE:
     LDY #18
     ;JSR CopyRow
 GFXT_CopyRow:
-    lda (SpriteMove),Y ;indirect index source memory address
+    lda (SpriteImage),Y ;indirect index source memory address
     BEQ GFXT_CopyRow_Transparent ;zero, is transparent
     CMP #$40 ;alt black, is edge
     BNE GFXT_NOTEDGE ;normal, just output
@@ -8517,13 +8562,13 @@ GFXT_CopyRow_Transparent:
     sta Screen
     CLC
     lda #128
-    ADC SpriteMove
-    sta SpriteMove
+    ADC SpriteImage
+    sta SpriteImage
     
     LDY #18
     ;JSR CopyRow
 GFXT_CopyRow2:
-    lda (SpriteMove),Y ;indirect index source memory address
+    lda (SpriteImage),Y ;indirect index source memory address
     BEQ GFXT_CopyRow_Transparent2
     CMP #$40 ;alt black, is edge
     BNE GFXT_NOTEDGE2 ;normal, just output
@@ -8534,7 +8579,7 @@ GFXT_CopyRow_Transparent2:
     DEY
     bne GFXT_CopyRow2 ;Loop
 
-    inc SpriteMove + 1 ;increment high order source memory address
+    inc SpriteImage + 1 ;increment high order source memory address
     inc Screen + 1 ;increment high order dest memory address
     CLC
     lda #128
@@ -8542,8 +8587,8 @@ GFXT_CopyRow_Transparent2:
     sta Screen
     CLC
     lda #128
-    ADC SpriteMove
-    sta SpriteMove
+    ADC SpriteImage
+    sta SpriteImage
     DEX
     BNE GFXT_TOPE
     RTS ;BRA DONE
@@ -8557,7 +8602,7 @@ GFXT_TOPO:
     LDY #18
     ;JSR CopyRow
 GFXT_CopyRow3:
-    lda (SpriteMove),Y ;indirect index source memory address
+    lda (SpriteImage),Y ;indirect index source memory address
     BEQ GFXT_CopyRow_Transparent3
     CMP #$40 ;alt black, is edge
     BNE GFXT_NOTEDGE3 ;normal, just output
@@ -8575,12 +8620,12 @@ GFXT_CopyRow_Transparent3:
     sta Screen
     CLC
     lda #128
-    ADC SpriteMove
-    sta SpriteMove
+    ADC SpriteImage
+    sta SpriteImage
     LDY #18
     ;JSR CopyRow
 GFXT_CopyRow4:
-    lda (SpriteMove),Y ;indirect index source memory address
+    lda (SpriteImage),Y ;indirect index source memory address
     BEQ GFXT_CopyRow_Transparent4
     CMP #$40 ;alt black, is edge
     BNE GFXT_NOTEDGE4 ;normal, just output
@@ -8591,19 +8636,181 @@ GFXT_CopyRow_Transparent4:
     DEY
     bne GFXT_CopyRow4 ;Loop
 
-    inc SpriteMove + 1 ;increment high order source memory address
+    inc SpriteImage + 1 ;increment high order source memory address
     CLC
     lda #128
     ADC Screen
     sta Screen
     CLC
     lda #128
-    ADC SpriteMove
-    sta SpriteMove
+    ADC SpriteImage
+    sta SpriteImage
     DEX
     BNE GFXT_TOPO
     RTS;BRA DONE
 
+LAB_GFXH:  
+
+      ;JSR LAB_GTBY ;get byte In x
+     ;PHP
+     CLC
+     ;LDA #5 ;length
+     LDA OldPixY
+     ADC OldPixL
+     STA OldPixL
+     JSR LAB_GTBY          ; get byte parameter
+     TXA                     ; copy width to A
+     TAY ;LDY ;#5;LENGTH
+     LDA PlotColor;#48;OldPixC;#$00	;color 
+      ; jsr FillRow	;2000 stored as 00 20
+LAB_GFXH_FillRow1:
+      DEY
+      sta (OldPixL), y ; write A register to address vidpage + y
+      bne LAB_GFXH_FillRow1	
+      ;PLP
+      RTS
+
+LAB_GFXA: ; Adjustable TRANSPARENCY sprite
+          ;$e3 is width, $e4 is height x2
+      JSR   LAB_GADB          ; get two parameters from basic for POKE or WAIT
+      TXA                     ; A IS ROW 0-63
+      ;Maybe I should add bounds checks? 
+      ;Or not.... Too slow and hard to figure out! :p
+      ;So, it is up to you to make sure you dont draw on the 
+      ;bottom of the screen and glitch the 6522.
+      ;I should change the lookup to be two tables,one low and one high
+      ;That will save the INX below right?
+      ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each. 
+      TAX                     ;Move doubled row count to A
+      LDA HLINES,X            ;
+      STA Screen ;ScreenLow byte
+      INX
+      LDA HLINES,X
+      STA Screen + 1;ScreenHight byte
+      
+      LDX SpriteH ;#9;each line is 255 IE 2 lines each
+      ;CLEAN THE BELOW UP AFTER ZERO PAGE FIGURED OUT
+      ; lda SpriteImage
+      ; sta SpriteImage ;$FB
+      ; lda SpriteImage + 1 
+      ; sta SpriteImage + 1 ;$FC
+      
+      ;See if it is an Odd row, otherwise Even routine
+      LDA Screen
+      CMP #$80
+      BEQ GFXA_ODD ;reg_was_80
+      ;*** DRAW ***
+GFXA_EVEN:
+    LDA Itempl ; COLUMN 0-99 y in x/y
+    ADC Screen
+    STA Screen
+GFXA_TOPE:
+    LDY SpriteW
+    ;JSR CopyRow
+GFXA_CopyRow:
+    lda (SpriteImage),Y ;indirect index source memory address
+    BEQ GFXA_CopyRow_Transparent ;zero, is transparent
+    CMP #$40 ;alt black, is edge
+    BNE GFXA_NOTEDGE ;normal, just output
+    LDA BackColor ;need background color for self erase edge
+GFXA_NOTEDGE:
+    sta (Screen),Y ;indirect index dest memory address
+GFXA_CopyRow_Transparent:
+    DEY
+    bne GFXA_CopyRow ;Loop
+
+    CLC
+    lda #128 
+    ADC Screen
+    sta Screen
+    CLC
+    lda #128
+    ADC SpriteImage
+    sta SpriteImage
+    
+    LDY SpriteW
+    ;JSR CopyRow
+GFXA_CopyRow2:
+    lda (SpriteImage),Y ;indirect index source memory address
+    BEQ GFXA_CopyRow_Transparent2
+    CMP #$40 ;alt black, is edge
+    BNE GFXA_NOTEDGE2 ;normal, just output
+    LDA BackColor ;need background color for self erase edge
+GFXA_NOTEDGE2:
+    sta (Screen),Y ;indirect index dest memory address
+GFXA_CopyRow_Transparent2:
+    DEY
+    bne GFXA_CopyRow2 ;Loop
+
+    inc SpriteImage + 1 ;increment high order source memory address
+    inc Screen + 1 ;increment high order dest memory address
+    CLC
+    lda #128
+    ADC Screen
+    sta Screen
+    CLC
+    lda #128
+    ADC SpriteImage
+    sta SpriteImage
+    DEX
+    BNE GFXA_TOPE
+    RTS ;BRA DONE
+  
+GFXA_ODD:
+    LDA Itempl ; COLUMN 0-99 y in x/y
+    ADC Screen
+    STA Screen ;Not sure why I need to dec by one with the Odd rows?
+    DEC Screen ;But without the DEC it does not line up.
+GFXA_TOPO:
+    LDY SpriteW
+    ;JSR CopyRow
+GFXA_CopyRow3:
+    lda (SpriteImage),Y ;indirect index source memory address
+    BEQ GFXA_CopyRow_Transparent3
+    CMP #$40 ;alt black, is edge
+    BNE GFXA_NOTEDGE3 ;normal, just output
+    LDA BackColor ;need background color for self erase edge
+GFXA_NOTEDGE3:
+    sta (Screen),Y ;indirect index dest memory address
+GFXA_CopyRow_Transparent3:
+    DEY
+    bne GFXA_CopyRow3 ;Loop
+
+    inc Screen + 1 ;increment high order dest memory address, starting at $60
+    CLC
+    lda #128 
+    ADC Screen
+    sta Screen
+    CLC
+    lda #128
+    ADC SpriteImage
+    sta SpriteImage
+    LDY SpriteW
+    ;JSR CopyRow
+GFXA_CopyRow4:
+    lda (SpriteImage),Y ;indirect index source memory address
+    BEQ GFXA_CopyRow_Transparent4
+    CMP #$40 ;alt black, is edge
+    BNE GFXA_NOTEDGE4 ;normal, just output
+    LDA BackColor ;need background color for self erase edge
+GFXA_NOTEDGE4:
+    sta (Screen),Y ;indirect index dest memory address
+GFXA_CopyRow_Transparent4:
+    DEY
+    bne GFXA_CopyRow4 ;Loop
+
+    inc SpriteImage + 1 ;increment high order source memory address
+    CLC
+    lda #128
+    ADC Screen
+    sta Screen
+    CLC
+    lda #128
+    ADC SpriteImage
+    sta SpriteImage
+    DEX
+    BNE GFXA_TOPO
+    RTS;BRA DONE
 
 HLINES: ;These are the line start locations for the VGA frame buffer.
     .WORD $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380,$2400,$2480,$2500,$2580,$2600,$2680,$2700,$2780
@@ -8635,6 +8842,24 @@ HLINES: ;These are the line start locations for the VGA frame buffer.
 ;     .WORD $2864,$28E4,$2964,$29E4,$2A64,$2AE4,$2B64,$2BE4,$2C64,$2CE4,$2D64,$2DE4,$2E64,$2EE4,$2F64,$2FE4
 ;     .WORD $3064,$30E4,$3164,$31E4,$3264,$32E4,$3364,$33E4,$3464,$34E4,$3564,$35E4,$3664,$36E4,$3764,$37E4
 ;     .WORD $3864,$38E4,$3964,$39E4,$3A64,$3AE4,$3B64,$3BE4,$3C64,$3CE4,$3D64,$3DE4,$3E64,$3EE4,$3F64,$3FE4 
+
+GFX_Startup:
+      ;Make sure a  after startup does not
+      ;corrupt memory that Basic uses.
+      LDA #$65
+      STA OldPixL
+      LDA #$20
+      STA OldPixH
+      LDA #$65
+      STA Screen
+      LDA #$20
+      STA ScreenH
+      ;This is to set default sprite size to 18x18
+      LDA #9
+      STA SpriteH
+      LDA #18
+      STA SpriteW
+      RTS
 
 
 ;hard coded test sprite data
@@ -8897,9 +9122,12 @@ LAB_CTBL
       .word LAB_DO-1          ; DO              new command
       .word LAB_LOOP-1        ; LOOP            new command
       .word LAB_PLOT-1        ; PLOT
+      .word LAB_GFXA-1        ; GFXA SPRITE
+      .word LAB_GFXH-1       ; GFX HLINE 
       .word LAB_GFXS-1        ; GFX SPRITE
       .word LAB_GFXT-1        ; GFX TRANSPARENCY SPRITE
       .word LAB_GFX-1         ; GFX 
+      ;.word LAB_HLINE-1       ; GFX HLINE 
       .word LAB_PRINT-1       ; PRINT
       .word LAB_CONT-1        ; CONT
       .word LAB_LIST-1        ; LIST
@@ -8910,8 +9138,9 @@ LAB_CTBL
       .word LAB_SWAP-1        ; SWAP            new command
       .word LAB_BITSET-1      ; BITSET          new command
       .word LAB_BITCLR-1      ; BITCLR          new command
-      .word LAB_CLS-1         ; BITCLR          new command
-      .word LAB_COLOR-1       ; BITCLR          new command
+      .word LAB_BEEP-1        ; BEEP            Fifty1Ford Beep Command for BenEater6502 PB7 pin speaker 
+      .word LAB_CLS-1         ; CLS             Fifty1Ford Clear Screen to black Ben Eater VGA
+      .word LAB_COLOR-1       ; COLOR           Fifty1Ford Color fill Screen Ben Eater VGA
       .word LAB_MOVE-1        ; MOVE  MOVE PIXEL
       .word LAB_IRQ-1         ; IRQ             new command
       .word LAB_NMI-1         ; NMI             new command
@@ -9140,6 +9369,8 @@ LBB_BINS
       .byte "IN$(",TK_BINS    ; BIN$(
 LBB_BITCLR
       .byte "ITCLR",TK_BITCLR ; BITCLR
+LBB_BEEP
+      .byte "EEP",TK_BEEP     ; BEEP
 LBB_BITSET
       .byte "ITSET",TK_BITSET ; BITSET
 LBB_BITTST
@@ -9200,10 +9431,14 @@ LBB_FRE
 TAB_ASCG
 LBB_GET
       .byte "ET",TK_GET       ; GET
+LBB_GFXA
+      .byte "FXA",TK_GFXA       ; GFXA
+LBB_GFXH
+      .byte "FXH",TK_GFXH       ; GFXA
 LBB_GFXS
       .byte "FXS",TK_GFXS       ; GFXS
 LBB_GFXT
-      .byte "FXT",TK_GFXT       ; GFXS
+      .byte "FXT",TK_GFXT       ; GFXT
 LBB_GFX
       .byte "FX",TK_GFX       ; GFX
 LBB_GOSUB
@@ -9214,6 +9449,8 @@ LBB_GOTO
 TAB_ASCH
 LBB_HEXS
       .byte "EX$(",TK_HEXS    ; HEX$(
+; LBB_HLINE
+;       .byte "LINE",TK_GFX       ; GFX
       .byte $00
 TAB_ASCI
 LBB_IF
@@ -9452,11 +9689,17 @@ LAB_KEYT
       .word LBB_PLOT         ; PLOT
       
       .byte 4,'G'
+      .word LBB_GFXA         ; GFX SPRITE
+      .byte 4,'G'
+      .word LBB_GFXH         ; GFX SPRITE
+      .byte 4,'G'
       .word LBB_GFXS         ; GFX SPRITE
       .byte 4,'G'
       .word LBB_GFXT         ; GFX TRANSPARENCY SPRITE
       .byte 3,'G'
       .word LBB_GFX         ; GFX SPRITE
+      ; .byte 5,'H'
+      ; .word LBB_HLINE         ; GFX SPRITE
 
       .byte 5,'P'
       .word LBB_PRINT         ; PRINT
@@ -9478,6 +9721,8 @@ LAB_KEYT
       .word LBB_BITSET        ; BITSET
       .byte 6,'B'
       .word LBB_BITCLR        ; BITCLR
+      .byte 4,'B'
+      .word LBB_BEEP          ; BEEP
       .byte 3,'C'
       .word LBB_CLS           ; CLS
       .byte 5,'C'

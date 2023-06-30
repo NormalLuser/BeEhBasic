@@ -71,6 +71,25 @@ ACIA_TX      = ACIA ;$8400
 ACIA_STATUS  = ACIA+1;$8401
 ACIA_COMMAND = ACIA+2;$8402
 ACIA_CONTROL = ACIA+3;$8403
+;Added Ben Eater Mapping. BEEP function use first
+VIA              = $6000
+VIA_PORTB        = VIA
+VIA_PORTA        = $6001
+VIA_DDRB         = $6002
+VIA_DDRA         = $6003
+VIA_T1CL         = $6004
+VIA_T1CH         = $6005
+VIA_T1LL         = $6006
+VIA_T1LH         = $6007
+VIA_T2CL         = $6008
+VIA_T2CH         = $6009
+VIA_SHIFT        = $600A
+VIA_AUX          = $600B ;Set to 0 to stop BEEP
+VIA_PCR          = $600C
+VIA_IFR          = $600F
+VIA_IER          = $600E
+VIA_IORA         = $600F
+
 
 
 ACIAsetup
