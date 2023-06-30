@@ -2,7 +2,25 @@
 **EhBasic for your Ben Eater 6502 Breadboard Computer.**
 
 **Update!**
-** Now with Transparent Sprite command GFXT
+
+6/29/2023
+Added BEEP command as well as first pass at a Horizontal Line routine GFXH.
+BEEP 0 is off, BEEP 1 is a high tone, BEEP 255 is a low tone.
+I also changed CLS so that it also stops any BEEP. 
+Here is a demo:
+1 DO:GETT:IFT>0THENBEEPT:POKE$EC,T:MOVET/1.5,T/2
+2 LOOP
+
+GFXH 5 will draw a line 5 pixels long starting at the last MOVE position.
+It uses the color stored in $EC, you can use POKE $EC,48 to set the color.
+Here is a demo:
+1 DO:X=RND(0)*99:Y=RND(0)*62:C=RND(0)*64:MOVE X,Y:GFXHRND(0)*50
+2 POKE$EC,C:LOOP
+
+
+Older Updates:
+
+Now with Transparent Sprite command GFXT
 
 ![Sprites](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/TransparentSprites.gif) 
 
