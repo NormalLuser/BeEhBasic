@@ -8095,22 +8095,22 @@ LAB_BEEP;Fifty1Ford
       ORA  #$80
       STA  VIA_DDRB;$6002   ; Set the high bit in DDRB, to make PB7 an output.
 
-      LDA  VIA_ACR;$600b    ; Set the two high bits in the ACR to get the
+      LDA  VIA_AUX;$600b    ; Set the two high bits in the ACR to get the
       ORA  #$C0       ; square-wave output on PB7.  (Don't enable the
-      STA  VIA_ACR;$600b     ; T1 interrupt in the IER though.)
+      STA  VIA_AUX;$600b     ; T1 interrupt in the IER though.)
 
       LDA  #255       ; Set the T1 timeout period. 
                       ;LOWER THIS TO SOMETHING LIKE 77 FOR 1MHZ CPU CLOCK 
-      STA  $6004;VIA_T1CL   ;USE 255 if the Φ2 rate is 5MHz.  To get it going, write
+      STA  VIA_T1CL;$6004;   ;USE 255 if the Φ2 rate is 5MHz.  To get it going, write
       
       
       TXA ;BEEP IN A
-      STA $6005;VIA_T1CH
+      STA VIA_T1CH;$6005;
 
       RTS
 BEEP_Off:
         ;STZ $6002;VIA_DDRB
-        STZ $600b;VIA_ACR <<< I THINK I ONLY NEED THIS???
+        STZ VIA_AUX;$600b;VIA_ACR <<< I THINK I ONLY NEED THIS???
         ;LDA  #255       ; Set the T1 timeout period.  $17 is for 1.946kHz 
         ;STA  $6004;VIA_T1CL   ; if the Φ2 rate is 5MHz.  To get it going, write
         RTS
