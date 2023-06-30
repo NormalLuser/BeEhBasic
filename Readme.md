@@ -16,6 +16,10 @@ Here is a demo:
 
 2 LOOP
 
+** NOTE **
+BEEP is set for a 5Mhz system.
+For a slower system you will need to edit the BEEP routine.
+See comments in source, or just overclock to 5Mhz!!!
 
 GFXH 5 will draw a line 5 pixels long starting at the last MOVE position.
 
