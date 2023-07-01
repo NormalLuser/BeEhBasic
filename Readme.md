@@ -2,6 +2,14 @@
 **EhBasic for your Ben Eater 6502 Breadboard Computer.**
 
 **Update!**
+![Speaker](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/PB7Speaker.jpg) 
+
+Connect PB7, pin 17 on the 6522 to the positive side of a 47uF electrolytic capacitor connect the - side of the capacitor to a 100Ω resistor, then to the positive speaker wire . The other speaker wire goes to ground near the 6522.
+
+In this case I'm using a 8 Ohm 1 Watt 3 inch Adafruit speaker.
+
+https://www.amazon.com/dp/B00XW2NPTG?psc=1&ref=ppx_yo2ov_dt_b_product_details
+
 
 6/29/2023
 Added BEEP command as well as first pass at a Horizontal Line routine GFXH.
