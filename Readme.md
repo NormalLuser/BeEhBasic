@@ -74,7 +74,7 @@ Here is a little demo of what it can do:
 There is now a command called GFX that will plot a 42x42 image to the screen.
 This can be used like a sprite.
 
-![Sprites](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/BallSprites.jpg)
+![Sprites](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/BasicBallss.gif)
 
 <br>
 <br>
