@@ -55,6 +55,12 @@
 Ram_top           = $2000     ; end of user RAM+1 (set as needed, should be page aligned)
 Display           = $2000     ;Start of memory mapped display. 100x64 mapped to 128x64
                               ;IE, 2 lines for each high order address
+
+;Change this for CPU speed:
+;Pause_Delay       = 15       ;15 for 1.3mhz cpu. Lower for slower, higher for faster CPU.   
+
+
+
 ; VGALine1          = $2000
 ; Buffer 'off screen' area of video ram. 
 ; VGAB1        = $2064
@@ -391,7 +397,8 @@ TK_GFXT           = TK_GFXS+1       ; GFX Transparent Sprite token
 TK_GFX            = TK_GFXT+1       ; GFX Basic Sprite token
 ;TK_HLINE          = TK_GFX+1       ; GFX Basic Sprite token
 ;TK_PRINT          = TK_HLINE+1       ; PRINT token
-TK_PRINT          = TK_GFX+1       ; PRINT token
+TK_PAUSE          = TK_GFX+1       ; PRINT token
+TK_PRINT          = TK_PAUSE+1       ; PRINT token
 TK_CONT           = TK_PRINT+1      ; CONT token
 TK_LIST           = TK_CONT+1       ; LIST token
 TK_CLEAR          = TK_LIST+1       ; CLEAR token
@@ -459,7 +466,8 @@ TK_COS            = TK_EXP+1        ; COS token
 TK_SIN            = TK_COS+1        ; SIN token
 TK_TAN            = TK_SIN+1        ; TAN token
 TK_ATN            = TK_TAN+1        ; ATN token
-TK_PEEK           = TK_ATN+1        ; PEEK token
+; TK_PAUSE          = TK_ATN+1        ; PAUSE token
+TK_PEEK           = TK_ATN+1;= TK_PAUSE+1      ; PEEK token
 TK_DEEK           = TK_PEEK+1       ; DEEK token
 TK_SADD           = TK_DEEK+1       ; SADD token
 TK_LEN            = TK_SADD+1       ; LEN token
@@ -2491,9 +2499,61 @@ LAB_1829
       JSR   LAB_18C6          ; print string from Sutill/Sutilh
 LAB_182C
       JSR   LAB_GBYT          ; scan memory
+      BRA   LAB_PRINT
+
+
+;Fifty1Ford PAUSE 0-255 Delay routine
+;change static numbers to change delay.
+;using CPU wait so that 6522 timeers can be
+;used for PB7 sound output. 
+;Not all people have VGA setup.
+;Change this routine to use Vsync IRQ to get a 
+;true 1/60th second timer with VGA?
+LAB_PAUSE:
+      PHY                     ; Save Y Reg
+      PHX                     ; Save X Reg
+PAUSE_DELAY_LOOP:
+      JSR LAB_GTBY ;get byte In x?  
+      TXA
+      BEQ PAUSE_DONE ;DUMP OUT ON ZERO 0
+      TAY               ; Get delay value
+PAUSE_MINIDLY:
+      LDX   #100;ALSO CAN BE TWEAKED FOR CPU SPEED
+PAUSE_1:
+;SPIN WHEELS
+      PHA
+      PHX
+      JSR PAUSE_WAIT
+      JSR PAUSE_WAIT
+      JSR PAUSE_WAIT
+      PLX
+      PLA
+      DEX                     ; Decrement low index
+      BNE   PAUSE_1           ; Loop back until done
+      DEY                     ; Decrease by one
+      BNE   PAUSE_MINIDLY     ; Loop until done
+PAUSE_DONE:
+      PLX                     ; Restore X Reg
+      PLY                     ; Restore Y Reg
+      RTS                     ; Delay done, return
+
+PAUSE_WAIT:
+;TWEAK THIS FOR YOUR CPU SPEED
+;AT 1.3MHZ THIS MAKES THE MAX 'PAUSE 255'
+;TAKE JUST OVER 10 SECONDS.
+      LDX #15;Pause_Delay;#15 
+PAUSE_WAIT_LOOP:
+      ASL
+      ASL
+      ASL
+      ASL
+      ASL
+      DEX
+      BNE PAUSE_WAIT_LOOP
+      RTS
+
 
 ; PRINT
-
 LAB_PRINT
       BEQ   LAB_CRLF          ; if nothing following just print CR/LF
 
@@ -5415,8 +5475,9 @@ LAB_F2FU
       STA   Itemph            ; save temporary integer high byte
       RTS
 
-; perform PEEK()
 
+
+; perform PEEK()
 LAB_PEEK
       JSR   LAB_F2FX          ; save integer part of FAC1 in temporary integer
       LDX   #$00              ; clear index
@@ -8118,53 +8179,73 @@ BEEP_Off:
       
 
 
-
-;BothColor and CLS need to be cleaned up so they 
-;don't do the offscreen area. It slows down the routine.
-;Also, we plan on using that off screen area for storing
+;Fifty1Ford
+;Plan on using that off screen area for storing
 ;sprite related data and images.
-LAB_COLOR;Fifty1Ford
-      lda #$00 ;set our destination memory to copy to, $2000
-      sta Screen
-      lda #$20
-      sta ScreenH
-      ldy #$00 ;reset x and y for our loop
-      ;lda #$4
-      JSR LAB_GTBY ;get byte
-      TXA ;Guess it is in x
-      STA BackColor ;lets store the background color
-      LDX #32 ;32 'lines' as each line is 255 IE 2 lines each
-LoopCOLOR ;Image loop
-      sta (Screen),Y ;indirect index dest memory address, starting at $00
-      INY
-      bne LoopCOLOR ;loop until our dest goes over 255
-      inc ScreenH   ;increment high order dest memory address, starting at $60
-      DEX
-      bne LoopCOLOR ;if we're not there yet, loop
-      RTS
+;Routines now erase only onscreen area.
+;orgional clear:
 
 LAB_CLS
-;Fifty1Ford orgional clear
-;90,421 cycycles also clears off screen area
-;ToDo change to faster version that leaves offscreen area alone.
-;ADDED BEEP CLEAR
+      ;ADDED BEEP CLEAR 
       STZ   VIA_AUX;$600b;needs to be via address for PB7 timer
+      LDX #0
+      BRA FillScreen
+LAB_COLOR;Fifty1Ford
+      JSR LAB_GTBY ;get byte in X
+      STX BackColor ;lets store the background color
+      ;Lets claw back a few OPS from GTBY and just fall through
+      ;BRA FillScreen
+      ;RTS
+FillScreen:
+;unrolled screen clear/color function
+;71,132 Clock cycle run for 6,400 pixels.
+;11.11 cycles per pixel. 
+;19k+ less cycles than orgional clear
+;Based on the function from rehsd for his Paint program.
+;Changed to dec Y to skip the  tya/cmp #$64 and instead
+;go down to 0. 
+  lda #$20
+  sta Screen + 1
+  lda #$00
+  sta Screen
+  LDY #$64
+  TXA ;Color stored in X
+
+FillRow1:
+  DEY
+  sta (Screen), y ; write A register to address vidpage + y
+  bne FillRow1	
+  ldy #$80
+  sty Screen
+  LDY #$64
+FillRow2:
+  DEY
+  sta (Screen), y ; write A register to address vidpage + y
+  bne FillRow2	  
+  LDX #31 
+FillScreenLoop:
+  ;Go to the next page, first column
+  inc Screen + 1
+  LDY #$00
+  STY Screen
+  LDY #$64
+FillRow3:
+  DEY
+  sta (Screen), y ; write A register to address vidpage + y
+  bne FillRow3	
+  ;Go to the next page, first column
+  ldY #$80
+  stY Screen  
+  LDY #$64
+FillRow4:
+  DEY
+  sta (Screen), y ; write A register to address vidpage + y
+  bne FillRow4	
+  dex		;decrement X, which is used to track how many pages are left to be processed
+  bne FillScreenLoop	
+  RTS ;EXIT COLOR/CLEAR
+
       
-      LDX #32 ;32 'lines' as each line is 255 IE 2 lines each
-      lda #$00 ;set our destination memory to copy to, $2000, WRAM
-      sta Screen
-      lda #$20
-      sta ScreenH
-      ldy #$00 ;reset x and y for our loop
-      lda #$00
-LoopCLS ;Image loop
-      sta (Screen),Y ;indirect index dest memory address, starting at $00
-      INY
-      bne LoopCLS ;loop until our dest goes over 255
-      inc ScreenH ;increment high order dest memory address, starting at $60
-      DEX
-      bne LoopCLS ;if we're not there yet, loop
-      RTS
 
 
 LAB_MOVE;Fifty1Ford
@@ -8350,18 +8431,6 @@ CopyRow4:
     BNE TOPO
     RTS;BRA DONE
 
-; DONE:
-;     RTS
-;     RTS
-; CopyRow:
-;     lda (SpriteImage),Y ;indirect index source memory address
-;     sta (Screen),Y ;indirect index dest memory address
-;     DEY
-;     bne CopyRow ;Loop
-;     RTS
-      
-
-;*****************************************************
 
 
 LAB_GFXS: ;Simple Adjustable size sprite
@@ -8371,12 +8440,6 @@ LAB_GFXS: ;Simple Adjustable size sprite
      
       JSR   LAB_GADB          ; get two parameters from basic for POKE or WAIT
       TXA                     ; A IS ROW 0-63
-      ;Maybe I should add bounds checks? 
-      ;Or not.... Too slow and hard to figure out! :p
-      ;So, it is up to you to make sure you dont draw on the 
-      ;bottom of the screen and glitch the 6522.
-      ;I should change the lookup to be two tables,one low and one high
-      ;That will save the INX below right?
       ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each. 
       TAX                     ;Move doubled row count to A
       LDA HLINES,X            ;
@@ -8386,12 +8449,7 @@ LAB_GFXS: ;Simple Adjustable size sprite
       STA Screen + 1;ScreenHight byte
       
       LDX SpriteH;#9;each line is 255 IE 2 lines each
-      ;CLEAN THE BELOW UP AFTER ZERO PAGE FIGURED OUT
-      ; lda SpriteImage
-      ; sta SpriteMove ;$FB
-      ; lda SpriteImage + 1 
-      ; sta SpriteMove + 1 ;$FC
-      
+
       ;See if it is an Odd row, otherwise Even routine
       LDA Screen
       CMP #$80
@@ -8498,15 +8556,18 @@ GFXS_CopyRow4:
 
 LAB_GFXT: ; TRANSPARENTCY SMALLER SPRITE
       ;GFX Blit Routine. Fifty1Ford June 2023
-      ;CURRENTLY HARD CODED TO do a 42x42 pixel/byte blit.
-      ;assumes that image is stored with 00 low byte. 
+      ;NOTE this routine changes the set draw location.
+      ;to do, restore this to org value after run.
+      
+      ;NOTE Assumes that image is stored with 00 low byte. 
+      ;128 byte aligned, like the video ram and image files
       ;IE $AF00 is a valid starting address for the image data.
-      ;ToDo: Make a version that has adjustable size.
+      ;DONE: This version  has adjustable size.
       ;ToDo: Make version self animate on draw. IE on each draw advance 1 frame.
       ;ToDo: Make version that saves background.
       ;ToDo: Make version that does transparency.
       ;ToDo  Make a slower version that wraps around screen without issues.
-      ;Runs in 29,483 cycles after the parameter get. 
+      ;Runs in 29,483 cycles after the parameter get. (at 48x48 size) 
       ;At 5mhz running h and v sync (1.3mhz effective)
       ;this allows up to 44 updates/sprites to be drawn a second.
       JSR   LAB_GADB          ; get two parameters from basic for POKE or WAIT
@@ -8525,12 +8586,8 @@ LAB_GFXT: ; TRANSPARENTCY SMALLER SPRITE
       LDA HLINES,X
       STA Screen + 1;ScreenHight byte
       
-      LDX #9;each line is 255 IE 2 lines each
-      ;CLEAN THE BELOW UP AFTER ZERO PAGE FIGURED OUT
-      ; lda SpriteImage
-      ; sta SpriteImage ;$FB
-      ; lda SpriteImage + 1 
-      ; sta SpriteImage + 1 ;$FC
+      LDX SpriteH;#9;each line is 255 IE 2 lines each
+
       
       ;See if it is an Odd row, otherwise Even routine
       LDA Screen
@@ -8542,7 +8599,7 @@ GFXT_EVEN:
     ADC Screen
     STA Screen
 GFXT_TOPE:
-    LDY #18
+    LDY SpriteW;#18
     ;JSR CopyRow
 GFXT_CopyRow:
     lda (SpriteImage),Y ;indirect index source memory address
@@ -8565,7 +8622,7 @@ GFXT_CopyRow_Transparent:
     ADC SpriteImage
     sta SpriteImage
     
-    LDY #18
+    LDY SpriteW;#18
     ;JSR CopyRow
 GFXT_CopyRow2:
     lda (SpriteImage),Y ;indirect index source memory address
@@ -8599,7 +8656,7 @@ GFXT_ODD:
     STA Screen ;Not sure why I need to dec by one with the Odd rows?
     DEC Screen ;But without the DEC it does not line up.
 GFXT_TOPO:
-    LDY #18
+    LDY SpriteW;#18
     ;JSR CopyRow
 GFXT_CopyRow3:
     lda (SpriteImage),Y ;indirect index source memory address
@@ -8622,7 +8679,7 @@ GFXT_CopyRow_Transparent3:
     lda #128
     ADC SpriteImage
     sta SpriteImage
-    LDY #18
+    LDY SpriteW; #18
     ;JSR CopyRow
 GFXT_CopyRow4:
     lda (SpriteImage),Y ;indirect index source memory address
@@ -8674,12 +8731,7 @@ LAB_GFXA: ; Adjustable TRANSPARENCY sprite
           ;$e3 is width, $e4 is height x2
       JSR   LAB_GADB          ; get two parameters from basic for POKE or WAIT
       TXA                     ; A IS ROW 0-63
-      ;Maybe I should add bounds checks? 
-      ;Or not.... Too slow and hard to figure out! :p
-      ;So, it is up to you to make sure you dont draw on the 
-      ;bottom of the screen and glitch the 6522.
-      ;I should change the lookup to be two tables,one low and one high
-      ;That will save the INX below right?
+    
       ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each. 
       TAX                     ;Move doubled row count to A
       LDA HLINES,X            ;
@@ -8843,8 +8895,9 @@ HLINES: ;These are the line start locations for the VGA frame buffer.
 ;     .WORD $3064,$30E4,$3164,$31E4,$3264,$32E4,$3364,$33E4,$3464,$34E4,$3564,$35E4,$3664,$36E4,$3764,$37E4
 ;     .WORD $3864,$38E4,$3964,$39E4,$3A64,$3AE4,$3B64,$3BE4,$3C64,$3CE4,$3D64,$3DE4,$3E64,$3EE4,$3F64,$3FE4 
 
+
 GFX_Startup:
-      ;Make sure a  after startup does not
+      ;Make sure a move or draw after startup does not
       ;corrupt memory that Basic uses.
       LDA #$65
       STA OldPixL
@@ -9116,6 +9169,7 @@ LAB_CTBL
       .word V_LOAD-1          ; LOAD
       .word V_SAVE-1          ; SAVE
       .word LAB_DEF-1         ; DEF
+      ; .word LAB_PAUSE-1         ; DEF
       .word LAB_POKE-1        ; POKE
       .word LAB_DOKE-1        ; DOKE            new command
       .word LAB_CALL-1        ; CALL            new command
@@ -9128,6 +9182,7 @@ LAB_CTBL
       .word LAB_GFXT-1        ; GFX TRANSPARENCY SPRITE
       .word LAB_GFX-1         ; GFX 
       ;.word LAB_HLINE-1       ; GFX HLINE 
+      .word LAB_PAUSE-1       ; PRINT
       .word LAB_PRINT-1       ; PRINT
       .word LAB_CONT-1        ; CONT
       .word LAB_LIST-1        ; LIST
@@ -9516,6 +9571,8 @@ LBB_OR
       .byte "R",TK_OR         ; OR
       .byte $00
 TAB_ASCP
+LBB_PAUSE
+       .byte "AUSE",TK_PAUSE    ; PAUSE
 LBB_PEEK
       .byte "EEK(",TK_PEEK    ; PEEK(
 LBB_PI
@@ -9700,6 +9757,9 @@ LAB_KEYT
       .word LBB_GFX         ; GFX SPRITE
       ; .byte 5,'H'
       ; .word LBB_HLINE         ; GFX SPRITE
+      
+       .byte 5,'P'             ;
+       .word LBB_PAUSE         ; PAUSE
 
       .byte 5,'P'
       .word LBB_PRINT         ; PRINT
@@ -9820,6 +9880,7 @@ LAB_KEYT
       .word LBB_TAN           ; TAN
       .byte 4,'A'             ;
       .word LBB_ATN           ; ATN
+      
       .byte 5,'P'             ;
       .word LBB_PEEK          ; PEEK
       .byte 5,'D'             ;
