@@ -1,7 +1,14 @@
 **BeEhBasic.**
 **EhBasic for your Ben Eater 6502 Breadboard Computer.**
 
-**Update!**
+**Update!** 7/13/2023
+
+Added EhBasicBeepPause.bin, BeepApple.bas, and updated basic.asm source.
+This update adds a PAUSE command to ehbasic. This command does NOT use a timer.
+You will need to adjust based on your clock speed. This is needed to allow BEEP 
+to work correctly. 
+
+
 ![Speaker](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/PB7Speaker.jpg) 
 
 Connect PB7, pin 17 on the 6522 to the positive side of a 47uF electrolytic capacitor connect the - side of the capacitor to a 100Ω resistor, then to the positive speaker wire . The other speaker wire goes to ground near the 6522.
