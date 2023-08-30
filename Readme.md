@@ -1,8 +1,47 @@
 **BeEhBasic.**
 **EhBasic for your Ben Eater 6502 Breadboard Computer.**
 
-
 **Update!** 8/29/2023
+![Double Buffer](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/VGA Double Buffer Fifty1Ford.png)
+
+
+With 3 added 74 series chips, and one unused gate you already have from the VGA kit, you can have a hardware double buffer.
+
+This program uses 8 frames of animation stored in a raw bitmap on the ROM in the unused space between EhBasic and Woz Monitor .My program simply fills the screen with a random color on my new hardware screen buffer, then it draws the line using the last color used for the background color. Then I add the tick-marks,
+
+Next I set the address in memory to copy from (one of the frames of animation) and then use the GFXA sprite routine I added to basic to draw the animation frame.
+
+Then I use the 'BUFF' routine I added to BASIC to swap the two buffers.
+
+I'm still amazed at how much you can do with such simple hardware and software.
+
+This could be done without the double buffer with a self erasing sprite, but as the screens get more complex it gets harder and harder to add things without visible flickering.
+
+This 10 lines of code gets me quite a lot:
+
+0 PRINT "RUNNING MAN PROGRAM NormalLuser ART Zegley"
+
+1 DATA 55552,55582,55614,55645,59648,59676,59710,59737,0
+
+2 BSET1:GSET30,16:C=1:POKE$EC,0:Z=100:FORX=0TO7:READD(X):NEXTX
+
+3 X=10:Y=2:Z=1:P=20:U=10:OX=0:R=0:S=0
+
+4 DOKE$E5,D(S):INCS:MY=Y+31:COLOR C:MOVE0,MY:GFXH100
+
+5 BEEP0:ZZ=Z+50:PLOTZZ,MY:PLOTZZ,MY+1:PLOTZZ,MY+2
+
+6 PLOTZ,MY:PLOTZ,MY+1:PLOTZ,MY+2:DECZ,Z,Z,Z,Z:IFZ=0THENZ=100
+
+7 GFXA X,Y:BUFF:INCR:IFS>7THEN S=0:BEEP200
+
+8 IFR>58THEN10ELSEIFS=3THENBEEP200
+
+9 MOVE0,33:GFXH 99:INCX,X:GOTO4
+
+10 POKE$EC,C:C=RND(0)*63:R=0:Y=RND(0)*30:X=0:GOTO4
+
+
 
 Added EhBasicRun.bin
 
