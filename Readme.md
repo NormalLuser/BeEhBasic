@@ -2,7 +2,7 @@
 **EhBasic for your Ben Eater 6502 Breadboard Computer.**
 
 **Update!** 8/29/2023
-![Double Buffer]("https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/VGA Double Buffer Fifty1Ford.png")
+![Double Buffer](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/VGADoubleBufferFifty1Ford.png)
 
 
 With 3 added 74 series chips, and one unused gate you already have from the VGA kit, you can have a hardware double buffer.
