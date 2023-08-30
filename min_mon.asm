@@ -1,16 +1,44 @@
-;VGAClock          = $E5       ; unused 
+ACIA         = $5000 ;Modified to match Ben Eater mapping was $4000 
+ACIA_RX      = ACIA ;$5000
+ACIA_TX      = ACIA ;$5000
+ACIA_STATUS  = ACIA+1;$5001
+ACIA_COMMAND = ACIA+2;$5002
+ACIA_CONTROL = ACIA+3;$5003
+;Added Ben Eater Mapping. 
+VIA              = $6000
+VIA_PORTB        = VIA
+VIA_PORTA        = VIA+1;$6001
+VIA_DDRB         = VIA+2;$6002
+VIA_DDRA         = VIA+3;$6003
+VIA_T1CL         = VIA+4;$6004
+VIA_T1CH         = VIA+5;$6005
+VIA_T1LL         = VIA+6;$6006
+VIA_T1LH         = VIA+7;$6007
+VIA_T2CL         = VIA+8;$6008
+VIA_T2CH         = VIA+9;$6009
+VIA_SHIFT        = VIA+10;$600A
+VIA_AUX          = VIA+11;$600B ;Set to 0 to stop BEEP ALSO ACR
+VIA_PCR          = VIA+12;$600C
+VIA_IFR          = VIA+13;$600F
+VIA_IER          = VIA+14;$600E
+VIA_IORA         = VIA+15;$600F
+
+VGA_SCREENH      = $20 ;VGA Screen area starts at $2000
+VGA_SCREENL      = $00
+
+
 ;.org $8000
 ; minimal monitor for EhBASIC and 6502 simulator V1.05
 ; tabs converted to space, tabwidth=6
 
-; To run EhBASIC on the simulator load and assemble [F7] this file, start the simulator
-; running [F6] then start the code with the RESET [CTRL][SHIFT]R. Just selecting RUN
-; will do nothing, you'll still have to do a reset to run the code.
+
+; Polled 65c51 I/O routines adapted to EhBASIC. Delay routine from
+; http://forum.6502.org/viewtopic.php?f=4&t=2543&start=30#p29795
 
       .include "basic.asm"
 
 ; put the IRQ and MNI code in RAM so that it can be changed
-
+; Fifty1Ford.... Umm, I broke this I think...
 IRQ_vec     = VEC_SV+2        ; IRQ code vector
 ;NMI_vec     = IRQ_vec+$0A     ; NMI code vector
 
@@ -63,32 +91,7 @@ LAB_nokey
 LAB_dowarm
       JMP   LAB_WARM          ; do EhBASIC warm start
 
-; Polled 65c51 I/O routines adapted to EhBASIC. Delay routine from
-; http://forum.6502.org/viewtopic.php?f=4&t=2543&start=30#p29795
-ACIA         = $5000 ;Modified to match Ben Eater mapping was $4000 ;org $8800
-ACIA_RX      = ACIA ;$8400
-ACIA_TX      = ACIA ;$8400
-ACIA_STATUS  = ACIA+1;$8401
-ACIA_COMMAND = ACIA+2;$8402
-ACIA_CONTROL = ACIA+3;$8403
-;Added Ben Eater Mapping. BEEP function use first
-VIA              = $6000
-VIA_PORTB        = VIA
-VIA_PORTA        = $6001
-VIA_DDRB         = $6002
-VIA_DDRA         = $6003
-VIA_T1CL         = $6004
-VIA_T1CH         = $6005
-VIA_T1LL         = $6006
-VIA_T1LH         = $6007
-VIA_T2CL         = $6008
-VIA_T2CH         = $6009
-VIA_SHIFT        = $600A
-VIA_AUX          = $600B ;Set to 0 to stop BEEP
-VIA_PCR          = $600C
-VIA_IFR          = $600F
-VIA_IER          = $600E
-VIA_IORA         = $600F
+
 
 
 
@@ -135,6 +138,7 @@ DELAY_DONE
       RTS                     ; Delay done, return
 
 ACIAin
+;Fifty1Ford Hrmmm.. Can we get keys from the keyboard?
       LDA ACIA_STATUS         ; get ACIA status
       AND #$08                ; mask rx buffer status flag
       BEQ LAB_nobyw           ; branch if no byte waiting
@@ -197,9 +201,12 @@ NMI_vec
       ;PHY 
       ;Attempt at vga 'clock' and test
       ;TRY THIS ONE OUT -YEP ALL YOU NEED FOR CLOCK
-        INC $E2 ;VGAClock
+        ;INC $E2 ;VGAClock
+        DEC $E2 ;Lets dec instead, that way we can reset to
+        ;wanted count and look at the count down for 0.
+        ;May use for beep/music timer
         ;OK, this can mess with the carry flag.
-        ;random screw ups.
+        ;causes random screw ups.
         ;Be sure to push and pull the processor status flags!    
 
         ;LDA $E2 ;SHOW BLINKIN' PIXEL
@@ -237,7 +244,7 @@ NoMove:
 
 
 LAB_mess
-      .byte $0D,$0A,"6502 BeEhBASIC VGA ACIA 2.5 [C]old/[W]arm ?",$00
+      .byte $0D,$0A,"6502 BeEhBASIC ACIA/Sound/Double Buffer 2.99 [C]old/[W]arm ?",$00
                               ; sign on string
  ; .org $FE06
 ;   .include "bk.asm"

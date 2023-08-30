@@ -1,7 +1,9 @@
-;BeEhbasic for Ben Eater 6502 + ACIA
+;BeEhbasic for Ben Eater 6502 + ACIA 2022/2023
 ;Source from:
 ;https://github.com/jefftranter/6502/blob/master/asm/ehbasic/basic.asm
 ; Enhanced BASIC to assemble under 6502 simulator, $ver 2.22p5
+; Sound, GFX, Pause routines added by:
+;   https://github.com/Fifty1Ford/BeEhBasic
 
 ; $E7E1 $E7CF $E7C6 $E7D3 $E7D1 $E7D5 $E7CF $E81E $E825
 
@@ -48,8 +50,14 @@
 ;      .3 It works!
 ;      .4 Plot, CLS, COLOR added
 ;      .5 Work on MOVE, IMAGE, and SMOVE
-
-; zero page use ..
+;      .6 GFX
+;      .7 GFXA/GFXT
+;      .8 BEEP
+;      .9 PAUSE
+;     2.99 Double Buffered VGA Added dedicated bank switch and single buffer startup 
+      ;BUFF command to swich buffer, and BSET 1 to turn on, 0 to turn off
+      ;Added GSET command to set Gfx Sprite size. Height is x 2.
+; zero page use .
 ; the following locations are bulk initialized from StrTab at LAB_GMEM
 ; Change below so Baic does not overwrite/use BE video ram
 Ram_top           = $2000     ; end of user RAM+1 (set as needed, should be page aligned)
@@ -57,9 +65,7 @@ Display           = $2000     ;Start of memory mapped display. 100x64 mapped to 
                               ;IE, 2 lines for each high order address
 
 ;Change this for CPU speed:
-;Pause_Delay       = 15       ;15 for 1.3mhz cpu. Lower for slower, higher for faster CPU.   
-
-
+Pause_Delay       = 15       ;15 for 1.3mhz cpu. Lower for slower, higher for faster CPU.   
 
 ; VGALine1          = $2000
 ; Buffer 'off screen' area of video ram. 
@@ -394,11 +400,10 @@ TK_GFXA           = TK_PLOT+1       ; GFX Adjustable size sprite token
 TK_GFXH           = TK_GFXA+1       ; GFX HLINE FROM LAST MOVE
 TK_GFXS           = TK_GFXH+1       ; GFX Small Sprite token
 TK_GFXT           = TK_GFXS+1       ; GFX Transparent Sprite token
-TK_GFX            = TK_GFXT+1       ; GFX Basic Sprite token
-;TK_HLINE          = TK_GFX+1       ; GFX Basic Sprite token
-;TK_PRINT          = TK_HLINE+1       ; PRINT token
-TK_PAUSE          = TK_GFX+1       ; PRINT token
-TK_PRINT          = TK_PAUSE+1       ; PRINT token
+TK_GSET           = TK_GFXT+1       ; GFX Basic Sprite token
+TK_GFX            = TK_GSET+1       ; GFX Basic Sprite token
+TK_PAUSE          = TK_GFX+1        ; PRINT token
+TK_PRINT          = TK_PAUSE+1      ; PAUSE token
 TK_CONT           = TK_PRINT+1      ; CONT token
 TK_LIST           = TK_CONT+1       ; LIST token
 TK_CLEAR          = TK_LIST+1       ; CLEAR token
@@ -410,7 +415,9 @@ TK_BITSET         = TK_SWAP+1       ; BITSET token
 TK_BITCLR         = TK_BITSET+1     ; BITCLR token
 ;TK_HLINE          = TK_BITCLR+1       ; GFX Basic Sprite token
 TK_BEEP           = TK_BITCLR+1     ; BEEP token
-TK_CLS            = TK_BEEP+1       ; CLS
+TK_BSET           = TK_BEEP+1       ; BSET token
+TK_BUFF           = TK_BSET+1       ; BUFF token
+TK_CLS            = TK_BUFF+1       ; CLS
 TK_COLOR          = TK_CLS+1        ; COLOR
 TK_MOVE           = TK_COLOR+1      ; MOVE
 TK_IRQ            = TK_MOVE+1;= TK_MOVE+1       ; IRQ token
@@ -2508,7 +2515,9 @@ LAB_182C
 ;used for PB7 sound output. 
 ;Not all people have VGA setup.
 ;Change this routine to use Vsync IRQ to get a 
-;true 1/60th second timer with VGA?
+;true 1/60th second timer with VGA 
+;Based on a routine I can't find. 6502.org or stack overflow?
+
 LAB_PAUSE:
       PHY                     ; Save Y Reg
       PHX                     ; Save X Reg
@@ -2541,7 +2550,7 @@ PAUSE_WAIT:
 ;TWEAK THIS FOR YOUR CPU SPEED
 ;AT 1.3MHZ THIS MAKES THE MAX 'PAUSE 255'
 ;TAKE JUST OVER 10 SECONDS.
-      LDX #15;Pause_Delay;#15 
+      LDX Pause_Delay ;#15 
 PAUSE_WAIT_LOOP:
       ASL
       ASL
@@ -8144,8 +8153,7 @@ LAB_PLOT;Fifty1Ford
       STA (Screen),Y    ;STORE COLOR INTO LINE OFFSET BY ROW COUNT IN Y
       RTS
       
-  
-      
+
 
 LAB_BEEP;Fifty1Ford
       JSR LAB_GTBY ;get byte In x?          
@@ -8153,37 +8161,59 @@ LAB_BEEP;Fifty1Ford
       BEQ BEEP_Off    ;if note 0 turn off beep; 
 
       LDA  VIA_DDRB;$6002
-      ORA  #$80
+      ORA  #$80    ;%1000-0000
       STA  VIA_DDRB;$6002   ; Set the high bit in DDRB, to make PB7 an output.
-
-      LDA  VIA_AUX;$600b    ; Set the two high bits in the ACR to get the
-      ORA  #$C0       ; square-wave output on PB7.  (Don't enable the
-      STA  VIA_AUX;$600b     ; T1 interrupt in the IER though.)
+      
+      ;WAIT, I don't think I need this LDA/ORA stuff for this register?
+      ;Look into just doing a STA #$C0
+      LDA  VIA_AUX;$600b
+      ;Using only 1100-0000 because it is a lower duty cycle and sounds fine.
+      ;This is better if you have a speaker hooked right up to the VIA to keep
+      ;it from drawing too much power.
+          ; Set the two high bits in the ACR to get the
+      ORA  #$C0   ;1100-0000; square-wave/RECTANGLE output on PB7.  (Don't enable the
+      STA  VIA_AUX;$600b    ; T1 interrupt in the IER though.)
 
       LDA  #255       ; Set the T1 timeout period. 
                       ;LOWER THIS TO SOMETHING LIKE 77 FOR 1MHZ CPU CLOCK 
-      STA  VIA_T1CL;$6004;   ;USE 255 if the Φ2 rate is 5MHz.  To get it going, write
-      
-      
+      STA  VIA_T1CL;$6004;;USE 255 if the Φ2 rate is 5MHz.  To get it going, write to
+                        ;VIA_T1CH 
       TXA ;BEEP IN A
       STA VIA_T1CH;$6005;
 
       RTS
 BEEP_Off:
-        ;STZ $6002;VIA_DDRB
         STZ VIA_AUX;$600b;VIA_ACR <<< I THINK I ONLY NEED THIS???
-        ;LDA  #255       ; Set the T1 timeout period.  $17 is for 1.946kHz 
-        ;STA  $6004;VIA_T1CL   ; if the Φ2 rate is 5MHz.  To get it going, write
+                         ;Timer is still going but nothing is output
         RTS
       
-      
+
+            
+LAB_BSET ;Set double buffer mode
+      JSR LAB_GTBY ;get byte In x?          
+      TXA ;TRANSFER X TO A
+      BEQ BSET_Off    ;if  0 turn off double buffer; 
+      LDA VIA_PORTB   ;Anything other than 0 turn it on
+      AND #$FD ; %1111-1101 
+      STA VIA_PORTB ; Set pin 2 to OFF
+      RTS
+BSET_Off:;Turn off double buffer mode
+      LDA VIA_PORTB
+      ORA #02 ; Set pin 2 to ON
+      STA VIA_PORTB
+      RTS
+
+LAB_BUFF ;Switch what buffer is shown
+      LDA VIA_PORTB
+	EOR #$01 ;Toggle pin 1 of port B
+	STA VIA_PORTB
+      RTS
 
 
 ;Fifty1Ford
 ;Plan on using that off screen area for storing
 ;sprite related data and images.
 ;Routines now erase only onscreen area.
-;orgional clear:
 
 LAB_CLS
       ;ADDED BEEP CLEAR 
@@ -8463,8 +8493,8 @@ GFXS_TOPE:
     LDY SpriteW;#18
     ;JSR CopyRow
     ;Wait for vsync?
-; GFXS_EVEN_IRQ:
 ;     LDA $E2
+; GFXS_EVEN_IRQ:
 ;     CMP $E2
 ;     BEQ GFXS_EVEN_IRQ
 GFXS_CopyRow:
@@ -8513,8 +8543,8 @@ GFXS_TOPO:
     LDY SpriteW;#18
     ;JSR CopyRow
     ;Wait for vsync?
-; GFXS_ODD_IRQ:
 ;     LDA $E2
+; GFXS_ODD_IRQ:
 ;     CMP $E2
 ;     BEQ GFXS_ODD_IRQ
 GFXS_CopyRow3:
@@ -8594,7 +8624,7 @@ LAB_GFXT: ; TRANSPARENTCY SMALLER SPRITE
       CMP #$80
       BEQ GFXT_ODD ;reg_was_80
       ;*** DRAW ***
-GFXT_EVEN:
+GFXT_EVEN:  
     LDA Itempl ; COLUMN 0-99 y in x/y
     ADC Screen
     STA Screen
@@ -8705,6 +8735,32 @@ GFXT_CopyRow_Transparent4:
     DEX
     BNE GFXT_TOPO
     RTS;BRA DONE
+
+LAB_GSET:   ;OK, crashed ACIA with bad sizes. I'll bounds check this one.
+      JSR   LAB_GADB          ; get two parameters for POKE or WAIT
+      TXA                     ; X IS ROW 0-63
+      BEQ GSET_ZEROROH        ; Was 0, Set to 1
+      CMP #31
+      BCC GSET_StoreH         ; Less than 31 store
+      LDA #31                 ; More than 31, set to 31
+      BRA GSET_StoreH
+GSET_ZEROROH:
+      LDA #1
+GSET_StoreH:
+      STA SpriteH
+
+      LDA Itempl              ; Y IS COLUMN 0-99
+      BEQ GSET_ZEROROW        ; Was 0, Set to 1
+      CMP #99
+      BCC GSET_StoreW         ; Less than 31 store
+      LDA #99                 ; More than 31, set to 31
+      BRA GSET_StoreW
+GSET_ZEROROW:
+      LDA #1
+GSET_StoreW:
+      STA SpriteW
+      RTS
+
 
 LAB_GFXH:  
 
@@ -8912,6 +8968,16 @@ GFX_Startup:
       STA SpriteH
       LDA #18
       STA SpriteW
+      ;Startup code for the Fifty1Ford
+      ;Ben Eater Double buffer VGA hardware mod 
+      ;This is so that the computer starts up in 
+      ;'Stock' Single buffer VGA mode
+      LDA #$FF ;%1111-1111
+      STA VIA_DDRB ;Just set all of Port B to output
+      LDA #$02 ;%0000-0010 ;Set sencond pin, PB1 to 1
+      STA VIA  ;This overrides double buffering
+               ;and places the system into
+               ;'Stock' Single Buffer Mode
       RTS
 
 
@@ -8952,71 +9018,71 @@ GFX_Startup:
 ;      .BYTE 64,64,64,64,64,64,64,64,64,64,64,64,64,64,64,64
 ;      .BYTE 48,64,64,64,64,64,64,64,64,64,64,64,64,64,64,48
 
-LAB_PUT;Fifty1Ford
-      ;NOT WORKING YET.
-      ;NOT VALID BASIC FUNCTION YET
-      ;We need to LOAD OLD PIXEL ADDRESS AND COLOR and plot
-      ;So we dont end up putting garbage pixel on screen in case something changes in 'background'
-      ;******Edit this
-      LDA OldPixC
-      ;'ERASE' PIXEL WITH OLD COLOR
-      LDY OldPixY
-      STA (OldPixL),Y
-      ;PLOT NEW PIXEL
-      JSR   LAB_GADB          ; get two parameters for POKE or WAIT
-      TXA                     ; A IS ROW 0-63
-      LDY Itempl              ; Y IS COLUMN 0-99
-      LDX PlotColor           ; X IS COLOR
-      ;Maybe I should add bounds checks. or not....
-      ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each. 
-      PHX                     ;Put X in stack
-      TAX                     ;Move doubled row count to A
-      LDA HLINES,X            ;
-      STA OldPixL;Screen
-      INX
-      LDA HLINES,X
-      STA OldPixH;ScreenH
-      LDA (OldPixL),Y   ;Get existinh color
-      STA OldPixC       ;Save the existing color for later
-      PLX               ;PULL X FROM STACK, REPLACE WITH PLA AND REMOVE BELOW?
-      TXA               ;MOVE COLOR FROM X TO A
-      STA (OldPixL),Y ;(Screen),Y    ;STORE COLOR INTO LINE OFFSET BY ROW COUNT IN Y
-      ;SAVE PIXEL AS OLD PIXEL ADDRESS AND COLOR
-      STY OldPixY
-      RTS
+; LAB_PUT;Fifty1Ford
+;       ;NOT WORKING YET.
+;       ;NOT VALID BASIC FUNCTION YET
+;       ;We need to LOAD OLD PIXEL ADDRESS AND COLOR and plot
+;       ;So we dont end up putting garbage pixel on screen in case something changes in 'background'
+;       ;******Edit this
+;       LDA OldPixC
+;       ;'ERASE' PIXEL WITH OLD COLOR
+;       LDY OldPixY
+;       STA (OldPixL),Y
+;       ;PLOT NEW PIXEL
+;       JSR   LAB_GADB          ; get two parameters for POKE or WAIT
+;       TXA                     ; A IS ROW 0-63
+;       LDY Itempl              ; Y IS COLUMN 0-99
+;       LDX PlotColor           ; X IS COLOR
+;       ;Maybe I should add bounds checks. or not....
+;       ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each. 
+;       PHX                     ;Put X in stack
+;       TAX                     ;Move doubled row count to A
+;       LDA HLINES,X            ;
+;       STA OldPixL;Screen
+;       INX
+;       LDA HLINES,X
+;       STA OldPixH;ScreenH
+;       LDA (OldPixL),Y   ;Get existinh color
+;       STA OldPixC       ;Save the existing color for later
+;       PLX               ;PULL X FROM STACK, REPLACE WITH PLA AND REMOVE BELOW?
+;       TXA               ;MOVE COLOR FROM X TO A
+;       STA (OldPixL),Y ;(Screen),Y    ;STORE COLOR INTO LINE OFFSET BY ROW COUNT IN Y
+;       ;SAVE PIXEL AS OLD PIXEL ADDRESS AND COLOR
+;       STY OldPixY
+;       RTS
 
-LAB_SPRITE;Fifty1Ford
-      ;NOT WORKING, NOT IN BASIC
-      ;So, lets move somthing bigger
-      ;need to keep more data..
-      ;
-      ;******Edit this
-      LDA OldPixC
-      ;'ERASE' PIXEL WITH OLD COLOR
-      LDY OldPixY
-      STA (OldPixL),Y
-      ;PLOT NEW PIXEL
-      JSR   LAB_GADB          ; get two parameters for POKE or WAIT
-      TXA                     ; A IS ROW 0-63
-      LDY Itempl              ; Y IS COLUMN 0-99
-      LDX PlotColor           ; X IS COLOR
-      ;Maybe I should add bounds checks. or not....
-      ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each. 
-      PHX                     ;Put X in stack
-      TAX                     ;Move doubled row count to A
-      LDA HLINES,X            ;
-      STA OldPixL;Screen
-      INX
-      LDA HLINES,X
-      STA OldPixH;ScreenH
-      LDA (OldPixL),Y   ;Get existinh color
-      STA OldPixC       ;Save the existing color for later
-      PLX               ;PULL X FROM STACK, REPLACE WITH PLA AND REMOVE BELOW?
-      TXA               ;MOVE COLOR FROM X TO A
-      STA (OldPixL),Y ;(Screen),Y    ;STORE COLOR INTO LINE OFFSET BY ROW COUNT IN Y
-      ;SAVE PIXEL AS OLD PIXEL ADDRESS AND COLOR
-      STY OldPixY
-      RTS
+; LAB_SPRITE;Fifty1Ford
+;       ;NOT WORKING, NOT IN BASIC
+;       ;So, lets move somthing bigger
+;       ;need to keep more data..
+;       ;
+;       ;******Edit this
+;       LDA OldPixC
+;       ;'ERASE' PIXEL WITH OLD COLOR
+;       LDY OldPixY
+;       STA (OldPixL),Y
+;       ;PLOT NEW PIXEL
+;       JSR   LAB_GADB          ; get two parameters for POKE or WAIT
+;       TXA                     ; A IS ROW 0-63
+;       LDY Itempl              ; Y IS COLUMN 0-99
+;       LDX PlotColor           ; X IS COLOR
+;       ;Maybe I should add bounds checks. or not....
+;       ASL                     ;Double the row count. Array is entries of 2 bytes (16 bit) each. 
+;       PHX                     ;Put X in stack
+;       TAX                     ;Move doubled row count to A
+;       LDA HLINES,X            ;
+;       STA OldPixL;Screen
+;       INX
+;       LDA HLINES,X
+;       STA OldPixH;ScreenH
+;       LDA (OldPixL),Y   ;Get existinh color
+;       STA OldPixC       ;Save the existing color for later
+;       PLX               ;PULL X FROM STACK, REPLACE WITH PLA AND REMOVE BELOW?
+;       TXA               ;MOVE COLOR FROM X TO A
+;       STA (OldPixL),Y ;(Screen),Y    ;STORE COLOR INTO LINE OFFSET BY ROW COUNT IN Y
+;       ;SAVE PIXEL AS OLD PIXEL ADDRESS AND COLOR
+;       STY OldPixY
+;       RTS
 
 
 LAB_MSZM
@@ -9024,7 +9090,7 @@ LAB_MSZM
 
 LAB_SMSG
       .byte " Bytes free",$0D,$0A,$0A
-      .byte "BE 6502 Enhanced BASIC 2.3 -VGA -P",$0A,$00
+      .byte "BE 6502 Enhanced BASIC 2.7 -VGA -GFX -SOUND",$0A,$00
 
 ; numeric constants and series
 
@@ -9169,7 +9235,6 @@ LAB_CTBL
       .word V_LOAD-1          ; LOAD
       .word V_SAVE-1          ; SAVE
       .word LAB_DEF-1         ; DEF
-      ; .word LAB_PAUSE-1         ; DEF
       .word LAB_POKE-1        ; POKE
       .word LAB_DOKE-1        ; DOKE            new command
       .word LAB_CALL-1        ; CALL            new command
@@ -9180,6 +9245,7 @@ LAB_CTBL
       .word LAB_GFXH-1       ; GFX HLINE 
       .word LAB_GFXS-1        ; GFX SPRITE
       .word LAB_GFXT-1        ; GFX TRANSPARENCY SPRITE
+      .word LAB_GSET-1        ; GSET SPRITE SIZE
       .word LAB_GFX-1         ; GFX 
       ;.word LAB_HLINE-1       ; GFX HLINE 
       .word LAB_PAUSE-1       ; PRINT
@@ -9194,6 +9260,8 @@ LAB_CTBL
       .word LAB_BITSET-1      ; BITSET          new command
       .word LAB_BITCLR-1      ; BITCLR          new command
       .word LAB_BEEP-1        ; BEEP            Fifty1Ford Beep Command for BenEater6502 PB7 pin speaker 
+      .word LAB_BSET-1        ; BSET            Fifty1Ford 
+      .word LAB_BUFF-1        ; BUFF            Fifty1Ford 
       .word LAB_CLS-1         ; CLS             Fifty1Ford Clear Screen to black Ben Eater VGA
       .word LAB_COLOR-1       ; COLOR           Fifty1Ford Color fill Screen Ben Eater VGA
       .word LAB_MOVE-1        ; MOVE  MOVE PIXEL
@@ -9426,6 +9494,10 @@ LBB_BITCLR
       .byte "ITCLR",TK_BITCLR ; BITCLR
 LBB_BEEP
       .byte "EEP",TK_BEEP     ; BEEP
+LBB_BSET
+      .byte "SET",TK_BSET     ; BSET
+LBB_BUFF
+      .byte "UFF",TK_BUFF     ; BUFF
 LBB_BITSET
       .byte "ITSET",TK_BITSET ; BITSET
 LBB_BITTST
@@ -9494,6 +9566,8 @@ LBB_GFXS
       .byte "FXS",TK_GFXS       ; GFXS
 LBB_GFXT
       .byte "FXT",TK_GFXT       ; GFXT
+LBB_GSET
+      .byte "SET",TK_GSET       ; GSET
 LBB_GFX
       .byte "FX",TK_GFX       ; GFX
 LBB_GOSUB
@@ -9753,6 +9827,8 @@ LAB_KEYT
       .word LBB_GFXS         ; GFX SPRITE
       .byte 4,'G'
       .word LBB_GFXT         ; GFX TRANSPARENCY SPRITE
+      .byte 4,'G'
+      .word LBB_GSET         ; GSET SET SPRITE SIZE
       .byte 3,'G'
       .word LBB_GFX         ; GFX SPRITE
       ; .byte 5,'H'
@@ -9783,6 +9859,10 @@ LAB_KEYT
       .word LBB_BITCLR        ; BITCLR
       .byte 4,'B'
       .word LBB_BEEP          ; BEEP
+      .byte 4,'B'
+      .word LBB_BSET          ; BSET
+      .byte 4,'B'
+      .word LBB_BUFF          ; BUFF
       .byte 3,'C'
       .word LBB_CLS           ; CLS
       .byte 5,'C'
