@@ -25,6 +25,8 @@ I'm still amazed at how much you can do with such simple hardware and software.
 
 This could be done without the double buffer with a self erasing sprite, but as the screens get more complex it gets harder and harder to add things without visible flickering.
 
+I also added some BEEP commands so that there is a foot-fall sound if you have the speaker hooked up (see below).
+
 ![RUN](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/RunningMan.gif)
 
 This 10 lines of code gets me quite a lot:
