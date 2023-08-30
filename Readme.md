@@ -15,7 +15,7 @@ This takes advantage of the unused 16K of SRAM that is not mapped due to the sim
 If you have the VGA kit with your 6502 the first thing you want to do is clock your cpu at 5Mhz. (See Note on bottom)
 But the next modification you should make hardware wise is the double buffer. It makes a huge improvement in what can be done and makes draw routines easier since you get to write off screen without worrying about flickers and garbage as you draw to a live video output.
 
-This program below uses 8 frames of animation stored in a raw bitmap on the ROM in the unused space between EhBasic and Woz Monitor .My program simply fills the screen with a random color on my new hardware screen buffer, then it draws the line using the last color used for the background color. Then I add the tick-marks,
+The running sprite program below uses 8 frames of animation stored in a raw bitmap on the ROM in the unused space between EhBasic and Woz Monitor .My program simply fills the screen with a random color on my new hardware screen buffer, then it draws the line using the last color used for the background color. Then I add the tick-marks,
 
 Next I set the address in memory to copy from (one of the frames of animation) and then use the GFXA sprite routine I added to basic to draw the animation frame.
 
