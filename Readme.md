@@ -2,7 +2,12 @@
 **EhBasic for your Ben Eater 6502 Breadboard Computer.**
 
 **Update!** 8/29/2023
-![Double Buffer](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/VGADoubleBufferFifty1Ford.png)
+![Double Buffer Demo](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/DoubleBufferScroll.gif)
+
+![Double Buffer Logic](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/VGADoubleBufferFifty1Ford.png)
+
+
+
 
 
 With 3 added 74 series chips, and one unused gate you already have from the VGA kit, you can have a hardware double buffer.
@@ -16,6 +21,8 @@ Then I use the 'BUFF' routine I added to BASIC to swap the two buffers.
 I'm still amazed at how much you can do with such simple hardware and software.
 
 This could be done without the double buffer with a self erasing sprite, but as the screens get more complex it gets harder and harder to add things without visible flickering.
+
+![RUN](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/RunningMan.gif)
 
 This 10 lines of code gets me quite a lot:
 
@@ -59,7 +66,7 @@ BUFF This command swaps the two buffers so that the 'back buffer'
 GSET this allows you to set the sprite size without using peek and poke.
 
 
-![RUN](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/RunningMan.gif)
+
 
 
 
