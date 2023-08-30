@@ -10,13 +10,12 @@ This update adds:
 
 BSET (1 or 0) this turns on and off hardware double buffer.
 
-    When 0 the system is in normal single framebuffer mode.
+When 0 the system is in normal single framebuffer mode.
     
-    When 1 the VGA displays one frame buffer while the CPU controls the other.
+When 1 the VGA displays one frame buffer while the CPU controls the other.
     
 BUFF This command swaps the two buffers so that the 'back buffer'
-
-     is now the displayed buffer
+    is now the displayed buffer
      
 GSET this allows you to set the sprite size without using peek and poke.
 
