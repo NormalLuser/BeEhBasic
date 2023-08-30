@@ -1,7 +1,23 @@
 **BeEhBasic.**
 **EhBasic for your Ben Eater 6502 Breadboard Computer.**
 
-**Update!** 7/13/2023
+
+**Update!** 8/29/2023
+
+Added EhBasicRun.bin, 
+This update adds:
+BSET (1 or 0) this turns on and off hardware double buffer.
+    When 0 the system is in normal single framebuffer mode.
+    When 1 the VGA displays one frame buffer while the CPU controls the other.
+BUFF This command swaps the two buffers so that the 'back buffer'
+     is now the displayed buffer
+GSET this allows you to set the sprite size without using peek and poke.
+
+![RUN](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/RunningMan.gif)
+
+
+
+7/13/2023
 
 Added EhBasicBeepPause.bin, BeepApple.bas, and updated basic.asm source.
 This update adds a PAUSE command to ehbasic. This command does NOT use a timer.
