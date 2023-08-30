@@ -11,6 +11,7 @@
 
 
 With 3 added 74 series chips, and one unused gate you already have from the VGA kit, you can have a hardware double buffer.
+This takes advantage of the unused 16K of SRAM that is not mapped due to the simple address decoding of the orginal Ben Eater 6502 setup.
 
 This program uses 8 frames of animation stored in a raw bitmap on the ROM in the unused space between EhBasic and Woz Monitor .My program simply fills the screen with a random color on my new hardware screen buffer, then it draws the line using the last color used for the background color. Then I add the tick-marks,
 
