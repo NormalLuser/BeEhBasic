@@ -1,6 +1,24 @@
 **BeEhBasic.**
 **EhBasic for your Ben Eater 6502 Breadboard Computer.**
 
+This is my version of EhBASIC. EhBASIC is an Enhanced version of the same kind of BASIC used in apple and C64 and other 6502 computers of the time.
+
+A person named Lee Davison spent a lot of time working on it during his life.
+
+For a manual and example code you can look here for a mirror of Lee's site:
+
+http://retro.hansotten.nl/6502-sbc/lee-davison-web-site/enhanced-6502-basic/
+
+This version is inteneded for use with the Ben Eeater 6502 computer with serial port. 
+This is a breadboard computer that can be built as a kit or by following the plans.
+https://eater.net/
+
+I have been adding routines to my version of EhBASIC to work with the Worlds Worst Video card among others.
+The Video Card is not required to use this version of BASIC. Only the BE6502 and serial port are needed.
+
+It is the intent that all versions work with the 'Stock' Ben Eater 6502 setup unless otherwise noted.
+
+
 **Update!** 8/29/2023
 ![Double Buffer Demo](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/DoubleBufferScroll.gif)
 
