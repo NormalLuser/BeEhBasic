@@ -13,7 +13,11 @@ This version is inteneded for use with the Ben Eeater 6502 computer with serial 
 This is a breadboard computer that can be built as a kit or by following the plans.
 https://eater.net/
 
-I have been adding routines to my version of EhBASIC like PLOT and COLOR for the Worlds Worst Video Card, Beep using the VIA, and PAUSE.
+I have been adding routines to my version of EhBASIC like PLOT and COLOR for the Worlds Worst 
+Video Card:
+https://eater.net/vga
+
+I've also added Beep using the VIA, and PAUSE.
 The Video Card or speaker is not required to use this version of BASIC. Only the BE6502 and serial port are needed.
 
 It is the intent that all versions work with the 'Stock' Ben Eater 6502 setup unless otherwise noted.
