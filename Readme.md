@@ -19,7 +19,28 @@ The Video Card or speaker is not required to use this version of BASIC. Only the
 It is the intent that all versions work with the 'Stock' Ben Eater 6502 setup unless otherwise noted.
 
 
-**Update!** 8/29/2023
+**Update!** 7/19/2023
+![Plasma Demo](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/PlasmaDemo.gif)
+
+
+My version of this demo: "Plasmegg" [2002 | repack 2010 by cpcrulez]
+Info found here: http://norecess.cpcscene.net/the-elders-scrollers.html
+
+This demo uses my new BUFV command to do a V-blank sync buffer swap.
+If you are using the stock system without the v-blank connedted to the NMI you should change this 
+to the normal BUFF routine. You may want to add a PAUSE0 to slow down the animation a bit.
+
+Not used in this demo but also added was a PEN routine. Now instead of POKE'ing $EC to set
+the Pen color you can use the PEN command to set it.
+See PlasmaDemo.bas for the basic. 
+The current uploaded files should MAKE the right version of BASIC.
+There is a compiled BIN file called PlasmaDemo.bin. This has the correct 
+image file loaded in it. 
+
+
+
+8/29/2023
+
 ![Double Buffer Demo](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/DoubleBufferScroll.gif)
 
 ![Double Buffer Logic](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/VGADoubleBufferFifty1Ford.png)
