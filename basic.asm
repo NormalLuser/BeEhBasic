@@ -55,17 +55,26 @@
 ;      .8 BEEP
 ;      .9 PAUSE
 ;     2.99 Double Buffered VGA Added dedicated bank switch and single buffer startup 
-      ;BUFF command to swich buffer, and BSET 1 to turn on, 0 to turn off
+      ;BUFF command to swich buffer, and BSET 1 to turn on, 0 to turn off. No Flicker!
       ;Added GSET command to set Gfx Sprite size. Height is x 2.
-; zero page use .
-; the following locations are bulk initialized from StrTab at LAB_GMEM
-; Change below so Baic does not overwrite/use BE video ram
+;     3.00 Added PEN command to set draw color.
+;     3.1 Added BUFV command a V-sync Buffer switch. No lines or tearing!
+;            BUFV command only to be used when VGA V-sync is conneced to the 
+;            CPU NMI pin. It will hang the computer waiting otherwise.
+;            I'll change so there is a countdown loop or something
+;            that checks for some large amount of time to have passed 
+;            and continues so it does not crash computers with the 
+;            VGA or V-sync connection.
+
+
+;Fifty1Ford:
+; Changed below so Baic does not overwrite/use Ben Eater video ram by default.
 Ram_top           = $2000     ; end of user RAM+1 (set as needed, should be page aligned)
 Display           = $2000     ;Start of memory mapped display. 100x64 mapped to 128x64
                               ;IE, 2 lines for each high order address
 
 ;Change this for CPU speed:
-Pause_Delay       = 15       ;15 for 1.3mhz cpu. Lower for slower, higher for faster CPU.   
+;Pause_Delay       =$0F       ;15 for 1.3mhz cpu. Lower for slower, higher for faster CPU.   
 
 ; VGALine1          = $2000
 ; Buffer 'off screen' area of video ram. 
@@ -86,6 +95,7 @@ Pause_Delay       = 15       ;15 for 1.3mhz cpu. Lower for slower, higher for fa
 ; VGAB15       = $2764
 ; VGAB16       = $27E7
 
+; the following locations are bulk initialized from StrTab at LAB_GMEM
 LAB_WARM          = $00       ; BASIC warm start entry point
 Wrmjpl            = LAB_WARM+1; BASIC warm start vector jump low byte
 Wrmjph            = LAB_WARM+2; BASIC warm start vector jump high byte
@@ -338,8 +348,10 @@ IrqBase           = $DF       ; IRQ handler enabled/setup/triggered flags
 ; *** removed unused comments for $DE-$E1
 ;**************************************************************************
 
-
-VGAClock          = $E2       ; IF NMI hooked up to vsync this will inc. Might have issues at the moment, leave disconnected.
+;A wire connecting the VGA Vsync signal to the NMI is used for
+;BUFV command for a Vsync Buffer switch. It can also be used
+;for a 1/60th of a second timer or with user input a random seed.
+VGAClock          = $E2       ; IF NMI hooked up to vsync this will DEC
 SpriteW           = $E3       ; Sprite Width
 SpriteH           = $E4       ; Sprite Height
 SpriteImage       = $E5       ; Location of sprite in memory
@@ -403,7 +415,8 @@ TK_GFXT           = TK_GFXS+1       ; GFX Transparent Sprite token
 TK_GSET           = TK_GFXT+1       ; GFX Basic Sprite token
 TK_GFX            = TK_GSET+1       ; GFX Basic Sprite token
 TK_PAUSE          = TK_GFX+1        ; PRINT token
-TK_PRINT          = TK_PAUSE+1      ; PAUSE token
+TK_PEN            = TK_PAUSE+1        ; PRINT token
+TK_PRINT          = TK_PEN+1      ; PAUSE token
 TK_CONT           = TK_PRINT+1      ; CONT token
 TK_LIST           = TK_CONT+1       ; LIST token
 TK_CLEAR          = TK_LIST+1       ; CLEAR token
@@ -417,7 +430,8 @@ TK_BITCLR         = TK_BITSET+1     ; BITCLR token
 TK_BEEP           = TK_BITCLR+1     ; BEEP token
 TK_BSET           = TK_BEEP+1       ; BSET token
 TK_BUFF           = TK_BSET+1       ; BUFF token
-TK_CLS            = TK_BUFF+1       ; CLS
+TK_BUFV           = TK_BUFF+1       ; BUFF token
+TK_CLS            = TK_BUFV+1       ; CLS
 TK_COLOR          = TK_CLS+1        ; COLOR
 TK_MOVE           = TK_COLOR+1      ; MOVE
 TK_IRQ            = TK_MOVE+1;= TK_MOVE+1       ; IRQ token
@@ -2508,7 +2522,10 @@ LAB_182C
       JSR   LAB_GBYT          ; scan memory
       BRA   LAB_PRINT
 
-
+LAB_PEN
+      JSR LAB_GTBY
+      STX PlotColor ;$EC
+      RTS
 ;Fifty1Ford PAUSE 0-255 Delay routine
 ;change static numbers to change delay.
 ;using CPU wait so that 6522 timeers can be
@@ -2517,7 +2534,9 @@ LAB_182C
 ;Change this routine to use Vsync IRQ to get a 
 ;true 1/60th second timer with VGA 
 ;Based on a routine I can't find. 6502.org or stack overflow?
-
+;OK, works fine, I don't mind the range of pause.
+;But this routine is kinda' big. I should re-do
+;to take less ROM space. 
 LAB_PAUSE:
       PHY                     ; Save Y Reg
       PHX                     ; Save X Reg
@@ -2550,7 +2569,7 @@ PAUSE_WAIT:
 ;TWEAK THIS FOR YOUR CPU SPEED
 ;AT 1.3MHZ THIS MAKES THE MAX 'PAUSE 255'
 ;TAKE JUST OVER 10 SECONDS.
-      LDX Pause_Delay ;#15 
+      LDX #15 ;Pause_Delay ;#15 
 PAUSE_WAIT_LOOP:
       ASL
       ASL
@@ -8156,7 +8175,7 @@ LAB_PLOT;Fifty1Ford
 
 
 LAB_BEEP;Fifty1Ford
-      JSR LAB_GTBY ;get byte In x?          
+      JSR LAB_GTBY ;get byte In x          
       TXA ;TRANSFER X TO A
       BEQ BEEP_Off    ;if note 0 turn off beep; 
 
@@ -8167,30 +8186,36 @@ LAB_BEEP;Fifty1Ford
       ;WAIT, I don't think I need this LDA/ORA stuff for this register?
       ;Look into just doing a STA #$C0
       LDA  VIA_AUX;$600b
-      ;Using only 1100-0000 because it is a lower duty cycle and sounds fine.
-      ;This is better if you have a speaker hooked right up to the VIA to keep
-      ;it from drawing too much power.
-          ; Set the two high bits in the ACR to get the
+      ;Using only 1100-0000 instead of 1111-0000
+      ;because it is a lower duty cycle and sounds fine.
+      ;This would be a retangle wave instead of a square wave, but no real matter.
+      ;This lower duty cycle is better if you have a speaker hooked 
+      ;right up to the VIA to keep it from drawing too much power.
+          
+                            ; Set the two high bits in the ACR to get the
       ORA  #$C0   ;1100-0000; square-wave/RECTANGLE output on PB7.  (Don't enable the
       STA  VIA_AUX;$600b    ; T1 interrupt in the IER though.)
 
-      LDA  #255       ; Set the T1 timeout period. 
-                      ;LOWER THIS TO SOMETHING LIKE 77 FOR 1MHZ CPU CLOCK 
+      LDA  #255           ; Set the T1 timeout period. 
+                          ;LOWER THIS TO SOMETHING LIKE 77 FOR 1MHZ CPU CLOCK 
       STA  VIA_T1CL;$6004;;USE 255 if the Φ2 rate is 5MHz.  To get it going, write to
-                        ;VIA_T1CH 
+                           ;VIA_T1CH 
       TXA ;BEEP IN A
       STA VIA_T1CH;$6005;
 
       RTS
 BEEP_Off:
         STZ VIA_AUX;$600b;VIA_ACR <<< I THINK I ONLY NEED THIS???
-                         ;Timer is still going but nothing is output
+                         ;Timer is still going but nothing is output?
         RTS
       
-
-            
+;Fifty1Ford
+;Buffer Routines to handel the new hardware 
+;Double Buffer for the VGA.
+;Allows you to draw off screen and then 
+;swap the buffer instantly.            
 LAB_BSET ;Set double buffer mode
-      JSR LAB_GTBY ;get byte In x?          
+      JSR LAB_GTBY ;get byte In x          
       TXA ;TRANSFER X TO A
       BEQ BSET_Off    ;if  0 turn off double buffer; 
       LDA VIA_PORTB   ;Anything other than 0 turn it on
@@ -8199,18 +8224,34 @@ LAB_BSET ;Set double buffer mode
       RTS
 BSET_Off:;Turn off double buffer mode
       LDA VIA_PORTB
-      ORA #02 ; Set pin 2 to ON
-      STA VIA_PORTB
+      ORA #$02 ; %0000-00010
+      STA VIA_PORTB ; Set pin 2 to ON
       RTS
 
+
+
+;LETS TRY A VBLANK VERSION...
+;Works GREAT! So easy. Just need a wire from
+;v-blank to the NMI on CPU. Then DEC the clock.
+;Only bad thing is this routine stalls if the V-BLANK
+;is not hooked up to the NMI.
+;I'll need to keep the normal BUFF routine.
+LAB_BUFV
+      LDA #1 ;LOAD 1
+      STA VGAClock ;$E2 ;STORE 1 IN TIMER.
+BUFV_VBLANK:
+      LDA VGAClock ;$E2 ;READ TIMER
+      BNE BUFV_VBLANK ;SEE IF IT IS ZERO YET
+      ;VBLANK START, FALL THROUGH TO BUFF
+      ;|
 LAB_BUFF ;Switch what buffer is shown
       LDA VIA_PORTB
-	EOR #$01 ;Toggle pin 1 of port B
-	STA VIA_PORTB
+ 	EOR #$01 ;%0000-0001
+ 	STA VIA_PORTB ;Toggle pin 1 of port B
       RTS
 
 
-;Fifty1Ford
+
 ;Plan on using that off screen area for storing
 ;sprite related data and images.
 ;Routines now erase only onscreen area.
@@ -8226,54 +8267,155 @@ LAB_COLOR;Fifty1Ford
       ;Lets claw back a few OPS from GTBY and just fall through
       ;BRA FillScreen
       ;RTS
-FillScreen:
-;unrolled screen clear/color function
-;71,132 Clock cycle run for 6,400 pixels.
-;11.11 cycles per pixel. 
-;19k+ less cycles than orgional clear
-;Based on the function from rehsd for his Paint program.
-;Changed to dec Y to skip the  tya/cmp #$64 and instead
-;go down to 0. 
-  lda #$20
-  sta Screen + 1
-  lda #$00
-  sta Screen
-  LDY #$64
-  TXA ;Color stored in X
 
-FillRow1:
-  DEY
-  sta (Screen), y ; write A register to address vidpage + y
-  bne FillRow1	
-  ldy #$80
-  sty Screen
-  LDY #$64
-FillRow2:
-  DEY
-  sta (Screen), y ; write A register to address vidpage + y
-  bne FillRow2	  
-  LDX #31 
+;New further unrolled fill screen. IT WORKS!
+ ;? 32,850 clocks!!? LESS THAN HALF the old routine!
+ ;38,282 cycles less to be exact.
+ ;5 cycles per pixel!!! Thanks Cruzer/CML at CODEBASE64 
+ ;for the 8x8 plasma speed code example clear screen routine for the idea! 
+ ;This is hard-coded to a 100x64 bitmapped screen
+ ;starting at $2000. 
+ ;It gobbles up some space (around 140 more bytes of ROM than the old routine.)
+ ;but it is so much faster!
+ ;
+FillScreen:
+      TXA ;Color stored in X
+      ;We'll DEC instead of a INC and CMP to save cycles.
+      LDX #100 ;one more than needed because of DEX below    
 FillScreenLoop:
-  ;Go to the next page, first column
-  inc Screen + 1
-  LDY #$00
-  STY Screen
-  LDY #$64
-FillRow3:
-  DEY
-  sta (Screen), y ; write A register to address vidpage + y
-  bne FillRow3	
-  ;Go to the next page, first column
-  ldY #$80
-  stY Screen  
-  LDY #$64
-FillRow4:
-  DEY
-  sta (Screen), y ; write A register to address vidpage + y
-  bne FillRow4	
-  dex		;decrement X, which is used to track how many pages are left to be processed
-  bne FillScreenLoop	
-  RTS ;EXIT COLOR/CLEAR
+      DEX ;DEX up here so we can clear the 0 row
+  	;This is unrolled so that there is a STA for each row of the screen.
+      ;Display mapping has 28 bytes at end of each row unused.
+      ;Display location = $2000
+      STA Display, x 
+      STA Display +$80,x
+	STA Display +$100,x
+	STA Display +$180,x
+	STA Display +$200,x
+	STA Display +$280,x
+	STA Display +$300,x
+	STA Display +$380,x
+	STA Display +$400,x
+	STA Display +$480,x
+	STA Display +$500,x
+	STA Display +$580,x
+	STA Display +$600,x
+	STA Display +$680,x
+	STA Display +$700,x
+	STA Display +$780,x
+	STA Display +$800,x
+	STA Display +$880,x
+	STA Display +$900,x
+	STA Display +$980,x
+	STA Display +$A00,x
+	STA Display +$A80,x
+	STA Display +$B00,x
+	STA Display +$B80,x
+	STA Display +$C00,x
+	STA Display +$C80,x
+	STA Display +$D00,x
+	STA Display +$D80,x
+	STA Display +$E00,x
+	STA Display +$E80,x
+	STA Display +$F00,x
+	STA Display +$F80,x
+	BNE FillScreenLoop
+      ;Can't branch at bottom of screen rows, too far of a jump
+      ;I'll just split the screen in half.
+      ;makes an interesting sawtooth effect.
+      ;This only matters in single buffer mode.
+      ;If timed exactly correctly there is no
+      ;or almost no sawtooth artifact for a
+      ;5Mhz system clock with halting VGA DMA
+
+	LDX #100 ;one more than needed because of DEX below    
+FillScreenLoop2:
+      DEX ;DEX up here so we can clear the 0 row
+      ;Doing $3000, so Display + $1000
+	STA Display +$1000,x
+	STA Display +$1080,x
+	STA Display +$1100,x
+	STA Display +$1180,x
+	STA Display +$1200,x
+	STA Display +$1280,x
+	STA Display +$1300,x
+	STA Display +$1380,x
+	STA Display +$1400,x
+	STA Display +$1480,x
+	STA Display +$1500,x
+	STA Display +$1580,x
+	STA Display +$1600,x
+	STA Display +$1680,x
+	STA Display +$1700,x
+	STA Display +$1780,x
+	STA Display +$1800,x
+	STA Display +$1880,x
+	STA Display +$1900,x
+	STA Display +$1980,x
+	STA Display +$1A00,x
+	STA Display +$1A80,x
+	STA Display +$1B00,x
+	STA Display +$1B80,x
+	STA Display +$1C00,x
+	STA Display +$1C80,x
+	STA Display +$1D00,x
+	STA Display +$1D80,x
+	STA Display +$1E00,x
+	STA Display +$1E80,x
+	STA Display +$1F00,x
+	STA Display +$1F80,x
+	BNE FillScreenLoop2
+
+	RTS
+
+; FillScreen:
+; ;unrolled screen clear/color function
+; ;71,132 Clock cycle run for 6,400 pixels.
+; ;11.11 cycles per pixel. 
+; ;19k+ less cycles than orgional clear
+; ;Based on the function from rehsd for his Paint program.
+; ;Changed to dec Y to skip the  tya/cmp #$64 and instead
+; ;go down to 0. 
+;   lda #$20
+;   sta Screen + 1
+;   lda #$00
+;   sta Screen
+;   LDY #$64
+;   TXA ;Color stored in X
+
+; FillRow1:
+;   DEY
+;   sta (Screen), y ; write A register to address vidpage + y
+;   bne FillRow1	
+;   ldy #$80
+;   sty Screen
+;   LDY #$64
+; FillRow2:
+;   DEY
+;   sta (Screen), y ; write A register to address vidpage + y
+;   bne FillRow2	  
+;   LDX #31 
+; FillScreenLoop:
+;   ;Go to the next page, first column
+;   inc Screen + 1
+;   LDY #$00
+;   STY Screen
+;   LDY #$64
+; FillRow3:
+;   DEY
+;   sta (Screen), y ; write A register to address vidpage + y
+;   bne FillRow3	
+;   ;Go to the next page, first column
+;   ldY #$80
+;   stY Screen  
+;   LDY #$64
+; FillRow4:
+;   DEY
+;   sta (Screen), y ; write A register to address vidpage + y
+;   bne FillRow4	
+;   dex		;decrement X, which is used to track how many pages are left to be processed
+;   bne FillScreenLoop	
+;   RTS ;EXIT COLOR/CLEAR
 
       
 
@@ -8485,7 +8627,7 @@ LAB_GFXS: ;Simple Adjustable size sprite
       CMP #$80
       BEQ GFXS_ODD ;reg_was_80
       ;*** DRAW ***
-GFXS_EVEN:
+GFXSEVEN:
     LDA Itempl ; COLUMN 0-99 y in x/y
     ADC Screen
     STA Screen
@@ -8927,10 +9069,10 @@ HLINES: ;These are the line start locations for the VGA frame buffer.
     .WORD $3800,$3880,$3900,$3980,$3A00,$3A80,$3B00,$3B80,$3C00,$3C80,$3D00,$3D80,$3E00,$3E80,$3F00,$3F80
     ;A EASY FIX FOR A 'OFF SCREEN WRAP' WITHOUT DOING ANY CHECKS; only helps with PLOT hard coded GFX,
     ; the current not animated routine. That only looks once.
-    .WORD $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380,$2400,$2480,$2500,$2580,$2600,$2680,$2700,$2780
-    .WORD $2800,$2880,$2900,$2980,$2A00,$2A80,$2B00,$2B80,$2C00,$2C80,$2D00,$2D80,$2E00,$2E80,$2F00,$2F80
-    .WORD $3000,$3080,$3100,$3180,$3200,$3280,$3300,$3380,$3400,$3480,$3500,$3580,$3600,$3680,$3700,$3780
-    .WORD $3800,$3880,$3900,$3980,$3A00,$3A80,$3B00,$3B80,$3C00,$3C80,$3D00,$3D80,$3E00,$3E80,$3F00,$3F80 
+  ;  .WORD $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380,$2400,$2480,$2500,$2580,$2600,$2680,$2700,$2780
+  ;  .WORD $2800,$2880,$2900,$2980,$2A00,$2A80,$2B00,$2B80,$2C00,$2C80,$2D00,$2D80,$2E00,$2E80,$2F00,$2F80
+  ;  .WORD $3000,$3080,$3100,$3180,$3200,$3280,$3300,$3380,$3400,$3480,$3500,$3580,$3600,$3680,$3700,$3780
+  ;  .WORD $3800,$3880,$3900,$3980,$3A00,$3A80,$3B00,$3B80,$3C00,$3C80,$3D00,$3D80,$3E00,$3E80,$3F00,$3F80 
 ;Save the space for now
 ;     ;NOW ANYTHING MORE THAN 64 WILL 'SCROLL' UP TO 255 ROWS. 
 ;     .WORD $2000,$2080,$2100,$2180,$2200,$2280,$2300,$2380,$2400,$2480,$2500,$2580,$2600,$2680,$2700,$2780
@@ -8954,7 +9096,7 @@ HLINES: ;These are the line start locations for the VGA frame buffer.
 
 GFX_Startup:
       ;Make sure a move or draw after startup does not
-      ;corrupt memory that Basic uses.
+      ;corrupt memory that BASIC uses.
       LDA #$65
       STA OldPixL
       LDA #$20
@@ -9086,11 +9228,11 @@ GFX_Startup:
 
 
 LAB_MSZM
-      .byte $0D,$0A,"Memory size <Enter> for default with VGA, 16384 for max NO VGA",$00
+      .byte $0D,$0A,"Memory size <Enter> for default, 16384 for max NO VGA",$00
 
 LAB_SMSG
       .byte " Bytes free",$0D,$0A,$0A
-      .byte "BE 6502 Enhanced BASIC 2.7 -VGA -GFX -SOUND",$0A,$00
+      .byte "BE6502 Enhanced BASIC",$0A,$00
 
 ; numeric constants and series
 
@@ -9248,7 +9390,8 @@ LAB_CTBL
       .word LAB_GSET-1        ; GSET SPRITE SIZE
       .word LAB_GFX-1         ; GFX 
       ;.word LAB_HLINE-1       ; GFX HLINE 
-      .word LAB_PAUSE-1       ; PRINT
+      .word LAB_PAUSE-1       ; PAUSE
+      .word LAB_PEN-1       ; PEN
       .word LAB_PRINT-1       ; PRINT
       .word LAB_CONT-1        ; CONT
       .word LAB_LIST-1        ; LIST
@@ -9262,6 +9405,7 @@ LAB_CTBL
       .word LAB_BEEP-1        ; BEEP            Fifty1Ford Beep Command for BenEater6502 PB7 pin speaker 
       .word LAB_BSET-1        ; BSET            Fifty1Ford 
       .word LAB_BUFF-1        ; BUFF            Fifty1Ford 
+      .word LAB_BUFV-1        ; BUFV            Fifty1Ford 
       .word LAB_CLS-1         ; CLS             Fifty1Ford Clear Screen to black Ben Eater VGA
       .word LAB_COLOR-1       ; COLOR           Fifty1Ford Color fill Screen Ben Eater VGA
       .word LAB_MOVE-1        ; MOVE  MOVE PIXEL
@@ -9498,6 +9642,8 @@ LBB_BSET
       .byte "SET",TK_BSET     ; BSET
 LBB_BUFF
       .byte "UFF",TK_BUFF     ; BUFF
+LBB_BUFV
+      .byte "UFV",TK_BUFV     ; BUFV
 LBB_BITSET
       .byte "ITSET",TK_BITSET ; BITSET
 LBB_BITTST
@@ -9649,6 +9795,8 @@ LBB_PAUSE
        .byte "AUSE",TK_PAUSE    ; PAUSE
 LBB_PEEK
       .byte "EEK(",TK_PEEK    ; PEEK(
+LBB_PEN
+      .byte "EN",TK_PEN    ; PEN
 LBB_PI
       .byte "I",TK_PI         ; PI
 LBB_POKE
@@ -9836,9 +9984,16 @@ LAB_KEYT
       
        .byte 5,'P'             ;
        .word LBB_PAUSE         ; PAUSE
+        
+      
+      .byte 3,'P'             ;
+      .word LBB_PEN         ; PEN
+
 
       .byte 5,'P'
       .word LBB_PRINT         ; PRINT
+
+      
       .byte 4,'C'
       .word LBB_CONT          ; CONT
       .byte 4,'L'
@@ -9863,6 +10018,8 @@ LAB_KEYT
       .word LBB_BSET          ; BSET
       .byte 4,'B'
       .word LBB_BUFF          ; BUFF
+      .byte 4,'B'
+      .word LBB_BUFV          ; BUFF
       .byte 3,'C'
       .word LBB_CLS           ; CLS
       .byte 5,'C'

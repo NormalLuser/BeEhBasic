@@ -195,14 +195,16 @@ END_CODE
 
 NMI_vec
 ; NMI:;
-      ;PHA
-      PHP
-      ;PHX 
-      ;PHY 
+      
+      PHP ;Push that CPU flag
+      DEC $E2 ;Lets dec 
+      PLP ;Pull that flag!
+      RTI
+      
       ;Attempt at vga 'clock' and test
       ;TRY THIS ONE OUT -YEP ALL YOU NEED FOR CLOCK
         ;INC $E2 ;VGAClock
-        DEC $E2 ;Lets dec instead, that way we can reset to
+      ;  DEC $E2 ;Lets dec instead, that way we can reset to
         ;wanted count and look at the count down for 0.
         ;May use for beep/music timer
         ;OK, this can mess with the carry flag.
@@ -224,7 +226,7 @@ NMI_vec
       ;LDA SpriteMove
       ;BEQ NoMove
       ;JSR DrawSprite
-NoMove:
+;NoMove:
 
 ;       ;check for a clear from CLS
 
@@ -236,15 +238,15 @@ NoMove:
 
 ;      PLY
 ;      PLX
-      PLP ;Pull that flag!
+      ;PLP ;Pull that flag!
 ;      PLA
-      RTI
+      ;RTI
 
 
 
 
 LAB_mess
-      .byte $0D,$0A,"6502 BeEhBASIC ACIA/Sound/Double Buffer 2.99 [C]old/[W]arm ?",$00
+      .byte $0D,$0A,"6502BeEhBASIC 3.1 [C]old/[W]arm?",$00
                               ; sign on string
  ; .org $FE06
 ;   .include "bk.asm"
