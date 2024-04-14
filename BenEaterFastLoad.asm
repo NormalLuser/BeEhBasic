@@ -34,7 +34,7 @@ MSGH        = $73
      STA ACIA_CMD
 LOADBINARY
 ; NormalLuser Binary load
-; Load an program in Binary Format.
+; Load a program/data in Binary Format.
             LDA #<MSG1
             LDX #>MSG1
             JSR SHWMSG      ;Hello Message.
