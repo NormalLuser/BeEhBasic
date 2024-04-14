@@ -66,7 +66,7 @@ LOADBINARY
             
             LDA #<MSG4
             LDX #>MSG4
-            JSR SHWMSG      ;Ask for End Address.
+            JSR SHWMSG      ;Ask for Data
             JSR NewLine
 LOOPMEMORY:
             LDA FROMH
