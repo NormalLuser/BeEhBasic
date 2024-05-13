@@ -1,0 +1,72 @@
+Name     BE6502DR;				/* - NormalLuser 6502 Double Buffer 32k Ram 32k ROM 2x1 bit Registers and 6 I/O ATF22V10 PLD Address Decoder  */
+PartNo   01 ;  				/* This is a 1 chip PLD solution to provide access to all 32K of RAM and all 32k of ROM while still 		*/
+Date     5/04/2024 ;  			/* allowing 4 IO Devices as well as Hardware Double Buffered Video and a Phi qualified R/W. 			*/
+Revision 03 ;  				/* I/O devices at Stock $4000, $6000, and 4 more at IE $4010, $4020, $4040 $4080. 					*/
+Designer NormalLuser ;  			/* * Hidden bytes'under' the IO of could RAM accessed via the double buffer bank system if mapped to $7fxx	*/
+Company  NormalL ;  				/* I.E. With the Double Buffer enabled access last 240 bytes via $3F10 - $3FFF while in bank 1. 		*/
+Assembly One ;  				/*  - This project made possible by the hard work of Dawid Buchwald shown here: 			    -  	*/
+Location  ;   				/*  - https://hackaday.io/project/174128-db6502/log/183434-address-decoding-and-how-to-get-it-right -		*/
+Device   g22V10 ;    			/* Inputs:  65C02, Clock, DMA, VIA output for Double Buffer enable and Buffer Bank swap for ATF22V10C  	*/
+Pin 1  =  CLK; 				/* Phi 2 in 															*/
+Pin 2  =  RW; 				/* Read/Write 														*/
+Pin 3  =  DMA; 				/* DMA from Worlds Worst Video Card 											*/
+Pin 4  =  A15; 				/* Upper 12 CPU Address lines, lower 4 bits not decoded 								*/
+Pin 5  =  A14;				/* I/O 1 $4000 Ben Eater ACIA Serial Port											*/
+Pin 6  =  A13;				/* I/O 2 $6000 Ben Eater VIA dual interface port									*/
+Pin 7  =  A12;
+Pin 8  =  A11;
+Pin 9  =  A10;
+Pin 10 =  A9;
+Pin 11 =  A8;  				/* Address lines 4 - 7 used as I/O select */
+Pin 13 =  A7;  				/* I/O 6 $xx80  */
+Pin 14 =  A6;  				/* I/O 5 $xx40  */
+Pin 15 =  A5;  				/* I/O 4 $xx20  */
+Pin 16 =  A4;  				/* I/O 3 $xx10  */	
+/* Register Pins:  */
+Pin 17  =  BANKSELECT;			/* Pin used as 1 Bit Register. No connect or status LED. Replaces Video Buffer Bank select from VIA output pin.*/
+Pin 18  =  SINGLEBUFFER; 			/* Pin used as 1 Bit Register. No connect or status LED. Replaces Single Buffer Bank select from VIA output pin.*/
+/* Outputs:   			 	* Outputs:      */
+Pin 23 = RAM_B14;   				/* to RAM Address 14 */
+Pin 22 = ROM_CS;  				/* to ROM /CS pin  */
+Pin 21 = PWRITE;  				/* to Ph2 qualified R /W pin */
+Pin 20 = IO_CS;   				/* to  IO /CS pins */
+Pin 19 = RAM_CS;  				/* to RAM /CS pin  */
+FIELD Address = [A15..A4];       		/* Address setup for below logic from Dawid Buchwald link above. THANKS! Made this whole thing easy! 					*/
+RAM       = Address:[0000..7FFF]; 		/* Lower 32 KB $0-$7FFF. Buffer Shadow is $6000-7FFF. I/O shadow RAM starting at $6000 fully accessable in Buffer mode at $3F10   	*/
+VIDEO     = Address:[2000..3FFF];		/* Worlds Worst Video Card maps to $2000 to $3FFF (100 on screen bytes, and 28 off screen bytes per line)				*/
+IO_ALT	   = Address:[4000..400F];		/* Ben Eater compatable Mapping for new IO 4 16 bytes												*/
+IO_1	   = Address:[5000];			/* Ben Eater Mapping for ACIA 16 bytes. If you move the IO to $6000 through $7FFF you can use the double buffer for access        */
+IO_2	   = Address:[6000];			/* Ben Eater Mapping for VIA 16 bytes.  the shadow RAM under the IO mapping. IE $6000-$7FFF swaps with $2000-$3FFF                */
+IO_3	   = Address:[5010];			/* Mapping for new IO 3 16 bytes	      Currently the registers also writes to RAM but they do not have to   				*/
+IO_4	   = Address:[5020];			/* Mapping for new IO 4 16 bytes												*/
+IO_5	   = Address:[5040];			/* Mapping for new IO 4 16 bytes												*/
+IO_6	   = Address:[5080];	 		/* Mapping for new IO 4 16 bytes												*/
+ROM       = Address:[8000..FFFF]; 		/* Upper 32 KB $8000-$FFFF */
+/* Register Addresses:  */
+BANK_ON   = Address:[4010];			/* On  for 1 Bit Register 16 bytes												*/
+BANK_OFF  = Address:[4020];			/* Off for 1 Bit Register 16 bytes												*/
+SINGLE_ON = Address:[4030];			/* On  for 1 Bit Register 16 bytes												*/
+SINGLE_OFF= Address:[4040];			/* Off for 1 Bit Register 16 bytes												*/
+/* Register Logic: */
+BANKSELECT.ar = 'b'0; 			/* No Reset */
+BANKSELECT.sp = CLK; 			/* Clock data in with CLK */
+BANK_CHANGED = BANK_ON # BANK_OFF; 	/* If 1 of our register Address get selected 1 else 0 */
+BANK_VALUE = BANK_CHANGED & BANK_ON; 	/* If changed and ON register address 1 else 0 */
+BANKSELECT.d = (!RW & (BANK_CHANGED & BANK_VALUE)) # (!BANK_CHANGED & BANKSELECT);   /* If it is a write and changed set to new data, else use old data. */ 
+SINGLEBUFFER.ar = 'b'0; 			/* No Reset */
+SINGLEBUFFER.sp = CLK;  			/* Clock data in with CLK */
+SINGLE_CHANGED = SINGLE_ON # SINGLE_OFF; /* If 1 of our register Address get selected 1 else 0 */
+SINGLE_VALUE = SINGLE_CHANGED & SINGLE_ON;/* If changed and ON register address 1 else 0 */
+SINGLEBUFFER.d = (!RW & (SINGLE_CHANGED & SINGLE_VALUE)) # (!SINGLE_CHANGED & SINGLEBUFFER); /* If it is a write and changed set to new data, else use old data. */ 
+/* Double Buffer/Bank Logic: $Xor   #Or  &AND  !NOT   */
+BANK_RESULT = DMA $ BANKSELECT;		/* DMA _Xor_ Bank Select */
+BANK_OVERRIDE = !(BANK_RESULT # SINGLEBUFFER);/* !NOT ( Bank Result _Or_ Single Buffer Override ) I invert this so that the RAM is mapped normal in single buffer mode  */		
+BANK_SELECT  = VIDEO & BANK_OVERRIDE;    	/* In Video Address Range _And_ Bank with Override */
+IO_SHADOW =  IO_1 # IO_2  # IO_ALT # IO_3 # IO_4  # IO_5; /* # IO_6;	*/
+/* Pin Out * 					 * Pin Out */
+RAM_B14  = A14 # BANK_SELECT;    		/* Address 14 $4000+ _OR_ $2000+ With Bank Select */
+!RAM_CS  = RAM & !IO_SHADOW ;     		/* All of the NON ROM or IO address space is RAM IE 32k - 64 bytes */
+!ROM_CS  = ROM; /*& RW; 			/* All of the ROM address range upper 32k. Should I disable output on write? */
+!IO_CS   = IO_SHADOW; 			/* Got fancy, only 64 bytes used for 4 I/O devices and a Ben compatable mem map to boot! */
+!PWRITE  = (CLK &!RW) & !BANK_CHANGED & !SINGLE_CHANGED; /* Clock qualified Write, don't write to RAM on Register writes so it can overlay double buffer at $6000-$7FFF    */
+/* NormalLuser Ben Eater 6502 Double Buffer 32k Ram 32k ROM 6 I/O ATF22V10 PLD Address Decoder */

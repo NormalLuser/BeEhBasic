@@ -1,0 +1,226 @@
+%SIGNAL
+PIN  16 =  A4 
+PIN  15 =  A5 
+PIN  14 =  A6 
+PIN  13 =  A7 
+PIN  11 =  A8 
+PIN  10 =  A9 
+PIN   9 =  A10 
+PIN   8 =  A11 
+PIN   7 =  A12 
+PIN   6 =  A13 
+PIN   5 =  A14 
+PIN   4 =  A15 
+PIN  17 =  BANKSELECT 
+PIN   1 =  CLK 
+PIN   3 =  DMA 
+PIN  20 =  IO_CS 
+PIN  21 =  PWRITE 
+PIN  23 =  RAM_B14 
+PIN  19 =  RAM_CS 
+PIN  22 =  ROM_CS 
+PIN   2 =  RW 
+PIN  18 =  SINGLEBUFFER 
+%END
+
+%FIELD
+FIELD Address = A15,A14,A13,A12,A11,A10,A9,A8,A7,A6,A5,A4
+%END
+
+%EQUATION
+BANKSELECT.d  =>
+    A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15 & !RW
+  # A15 & !BANKSELECT
+  # !A14 & !BANKSELECT
+  # A13 & !BANKSELECT
+  # A12 & !BANKSELECT
+  # A11 & !BANKSELECT
+  # A10 & !BANKSELECT
+  # A9 & !BANKSELECT
+  # A8 & !BANKSELECT
+  # A7 & !BANKSELECT
+  # A6 & !BANKSELECT
+  # A4 & A5 & !BANKSELECT
+  # !A4 & !A5 & !BANKSELECT
+
+BANKSELECT.ar SINGLEBUFFER.ar  =>
+    0 
+
+BANKSELECT.sp SINGLEBUFFER.sp  =>
+    CLK
+
+BANK_CHANGED =>
+    A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+  # !A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+BANK_OFF =>
+    !A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+BANK_ON =>
+    A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+BANK_OVERRIDE =>
+    !BANKSELECT & !DMA & !SINGLEBUFFER
+  # BANKSELECT & DMA & !SINGLEBUFFER
+
+BANK_RESULT =>
+    !BANKSELECT & DMA
+  # BANKSELECT & !DMA
+
+BANK_SELECT =>
+    A13 & !A14 & !A15 & BANKSELECT & DMA & !SINGLEBUFFER
+  # A13 & !A14 & !A15 & !BANKSELECT & !DMA & !SINGLEBUFFER
+
+BANK_VALUE =>
+    A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+IO_1 =>
+    !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+IO_2 =>
+    !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & A13 & A14 & !A15
+
+IO_3 =>
+    A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+IO_4 =>
+    !A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+IO_5 =>
+    !A4 & !A5 & A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+IO_6 =>
+    !A4 & !A5 & !A6 & A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+IO_ALT =>
+    !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+!IO_CS =>
+    !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A13 & A14 & !A15
+  # !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & A13 & A14 & !A15
+  # A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+  # !A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+  # !A4 & !A5 & A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+IO_SHADOW =>
+    !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A13 & A14 & !A15
+  # !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & A13 & A14 & !A15
+  # A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+  # !A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+  # !A4 & !A5 & A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+!PWRITE =>
+    A15 & CLK & !RW
+  # !A14 & CLK & !RW
+  # A13 & CLK & !RW
+  # A12 & CLK & !RW
+  # A11 & CLK & !RW
+  # A10 & CLK & !RW
+  # A9 & CLK & !RW
+  # A8 & CLK & !RW
+  # A7 & CLK & !RW
+  # !A4 & !A5 & !A6 & CLK & !RW
+  # A4 & A6 & CLK & !RW
+  # A5 & A6 & CLK & !RW
+
+RAM =>
+    !A15
+
+RAM_B14 =>
+    A14
+  # A13 & !A14 & !A15 & !BANKSELECT & DMA & SINGLEBUFFER
+  # A13 & !A14 & !A15 & BANKSELECT & !DMA & SINGLEBUFFER
+
+!RAM_CS =>
+    !A14 & !A15
+  # A12 & A13 & !A15
+  # A6 & A13 & !A15
+  # A5 & A13 & !A15
+  # A4 & A13 & !A15
+  # A6 & !A12 & !A15
+  # A5 & !A12 & !A15
+  # A4 & !A12 & !A15
+  # A11 & !A15
+  # A10 & !A15
+  # A9 & !A15
+  # A8 & !A15
+  # A7 & !A15
+  # A5 & A6 & !A15
+  # A4 & A6 & !A15
+  # A4 & A5 & !A15
+
+ROM =>
+    A15
+
+!ROM_CS =>
+    A15
+
+SINGLEBUFFER.d  =>
+    A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15 & !RW
+  # A15 & !SINGLEBUFFER
+  # !A14 & !SINGLEBUFFER
+  # A13 & !SINGLEBUFFER
+  # A12 & !SINGLEBUFFER
+  # A11 & !SINGLEBUFFER
+  # A10 & !SINGLEBUFFER
+  # A9 & !SINGLEBUFFER
+  # A8 & !SINGLEBUFFER
+  # A7 & !SINGLEBUFFER
+  # !A5 & !A6 & !SINGLEBUFFER
+  # !A4 & !A6 & !SINGLEBUFFER
+  # A5 & A6 & !SINGLEBUFFER
+  # !A4 & A5 & !SINGLEBUFFER
+  # A4 & !A5 & !SINGLEBUFFER
+  # A4 & A6 & !SINGLEBUFFER
+
+SINGLEBUFFER.ar  =>
+    
+SINGLEBUFFER.sp  =>
+    
+SINGLE_CHANGED =>
+    A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+  # !A4 & !A5 & A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+SINGLE_OFF =>
+    !A4 & !A5 & A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+SINGLE_ON =>
+    A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+SINGLE_VALUE =>
+    A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+VIDEO =>
+    A13 & !A14 & !A15
+
+A4.oe  =>
+    0 
+
+A5.oe  =>
+    0 
+
+A6.oe  =>
+    0 
+
+BANKSELECT.oe  =>
+    1 
+
+IO_CS.oe  =>
+    1 
+
+PWRITE.oe  =>
+    1 
+
+RAM_B14.oe  =>
+    1 
+
+RAM_CS.oe  =>
+    1 
+
+ROM_CS.oe  =>
+    1 
+
+SINGLEBUFFER.oe  =>
+    1 
+
+%END

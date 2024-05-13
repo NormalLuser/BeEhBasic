@@ -1,0 +1,476 @@
+
+*******************************************************************************
+                                   BE6502DR
+*******************************************************************************
+
+CUPL(WM)        5.0a Serial# 60008009
+Device          g22v10  Library DLIB-h-40-1
+Created         Sun May 12 20:07:45 2024
+Name            BE6502DR
+Partno          01 
+Revision        03 
+Date            5/04/2024 
+Designer        NormalLuser 
+Company         NormalL 
+Assembly        One 
+Location        
+
+===============================================================================
+                            Expanded Product Terms
+===============================================================================
+
+Address =>
+    A15 , A14 , A13 , A12 , A11 , A10 , A9 , A8 , A7 , A6 , A5 , A4
+
+BANKSELECT.d  =>
+    A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15 & 
+      !RW
+  # A15 & BANKSELECT
+  # !A14 & BANKSELECT
+  # A13 & BANKSELECT
+  # A12 & BANKSELECT
+  # A11 & BANKSELECT
+  # A10 & BANKSELECT
+  # A9 & BANKSELECT
+  # A8 & BANKSELECT
+  # A7 & BANKSELECT
+  # A6 & BANKSELECT
+  # A4 & A5 & BANKSELECT
+  # !A4 & !A5 & BANKSELECT
+
+BANKSELECT.ar  =>
+    0 
+
+BANKSELECT.sp  =>
+    CLK
+
+BANK_CHANGED =>
+    A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+  # !A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+BANK_OFF =>
+    !A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+BANK_ON =>
+    A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+BANK_OVERRIDE =>
+    !BANKSELECT & !DMA & !SINGLEBUFFER
+  # BANKSELECT & DMA & !SINGLEBUFFER
+
+BANK_RESULT =>
+    !BANKSELECT & DMA
+  # BANKSELECT & !DMA
+
+BANK_SELECT =>
+    A13 & !A14 & !A15 & BANKSELECT & DMA & !SINGLEBUFFER
+  # A13 & !A14 & !A15 & !BANKSELECT & !DMA & !SINGLEBUFFER
+
+BANK_VALUE =>
+    A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+IO_1 =>
+    !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+IO_2 =>
+    !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & A13 & A14 & !A15
+
+IO_3 =>
+    A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+IO_4 =>
+    !A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+IO_5 =>
+    !A4 & !A5 & A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+IO_6 =>
+    !A4 & !A5 & !A6 & A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+IO_ALT =>
+    !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+!IO_CS =>
+    !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A13 & A14 & !A15
+  # !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & A13 & A14 & !A15
+  # A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+  # !A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+  # !A4 & !A5 & A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+IO_SHADOW =>
+    !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A13 & A14 & !A15
+  # !A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & A13 & A14 & !A15
+  # A4 & !A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+  # !A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+  # !A4 & !A5 & A6 & !A7 & !A8 & !A9 & !A10 & !A11 & A12 & !A13 & A14 & !A15
+
+!PWRITE =>
+    A15 & CLK & !RW
+  # !A14 & CLK & !RW
+  # A13 & CLK & !RW
+  # A12 & CLK & !RW
+  # A11 & CLK & !RW
+  # A10 & CLK & !RW
+  # A9 & CLK & !RW
+  # A8 & CLK & !RW
+  # A7 & CLK & !RW
+  # !A4 & !A5 & !A6 & CLK & !RW
+  # A4 & A6 & CLK & !RW
+  # A5 & A6 & CLK & !RW
+
+RAM =>
+    !A15
+
+RAM_B14 =>
+    A14
+  # A13 & !A14 & !A15 & BANKSELECT & DMA & !SINGLEBUFFER
+  # A13 & !A14 & !A15 & !BANKSELECT & !DMA & !SINGLEBUFFER
+
+!RAM_CS =>
+    !A14 & !A15
+  # A12 & A13 & !A15
+  # A6 & A13 & !A15
+  # A5 & A13 & !A15
+  # A4 & A13 & !A15
+  # A6 & !A12 & !A15
+  # A5 & !A12 & !A15
+  # A4 & !A12 & !A15
+  # A11 & !A15
+  # A10 & !A15
+  # A9 & !A15
+  # A8 & !A15
+  # A7 & !A15
+  # A5 & A6 & !A15
+  # A4 & A6 & !A15
+  # A4 & A5 & !A15
+
+ROM =>
+    A15
+
+!ROM_CS =>
+    A15
+
+SINGLEBUFFER.d  =>
+    A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15 & 
+      !RW
+  # A15 & SINGLEBUFFER
+  # !A14 & SINGLEBUFFER
+  # A13 & SINGLEBUFFER
+  # A12 & SINGLEBUFFER
+  # A11 & SINGLEBUFFER
+  # A10 & SINGLEBUFFER
+  # A9 & SINGLEBUFFER
+  # A8 & SINGLEBUFFER
+  # A7 & SINGLEBUFFER
+  # !A5 & !A6 & SINGLEBUFFER
+  # !A4 & !A6 & SINGLEBUFFER
+  # A5 & A6 & SINGLEBUFFER
+  # !A4 & A5 & SINGLEBUFFER
+  # A4 & !A5 & SINGLEBUFFER
+  # A4 & A6 & SINGLEBUFFER
+
+SINGLEBUFFER.ar  =>
+    0 
+
+SINGLEBUFFER.sp  =>
+    CLK
+
+SINGLE_CHANGED =>
+    A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+  # !A4 & !A5 & A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+SINGLE_OFF =>
+    !A4 & !A5 & A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+SINGLE_ON =>
+    A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+SINGLE_VALUE =>
+    A4 & A5 & !A6 & !A7 & !A8 & !A9 & !A10 & !A11 & !A12 & !A13 & A14 & !A15
+
+VIDEO =>
+    A13 & !A14 & !A15
+
+A4.oe  =>
+    0 
+
+A5.oe  =>
+    0 
+
+A6.oe  =>
+    0 
+
+BANKSELECT.oe  =>
+    1 
+
+IO_CS.oe  =>
+    1 
+
+PWRITE.oe  =>
+    1 
+
+RAM_B14.oe  =>
+    1 
+
+RAM_CS.oe  =>
+    1 
+
+ROM_CS.oe  =>
+    1 
+
+SINGLEBUFFER.oe  =>
+    1 
+
+
+===============================================================================
+                                 Symbol Table
+===============================================================================
+
+Pin Variable                                    Pterms   Max     Min    
+Pol   Name              Ext     Pin     Type     Used   Pterms  Level   
+--- --------            ---     ---     ----    ------  ------  -----   
+
+    A4                          16       V        -       -       -     
+    A5                          15       V        -       -       -     
+    A6                          14       V        -       -       -     
+    A7                          13       V        -       -       -     
+    A8                          11       V        -       -       -     
+    A9                          10       V        -       -       -     
+    A10                         9        V        -       -       -     
+    A11                         8        V        -       -       -     
+    A12                         7        V        -       -       -     
+    A13                         6        V        -       -       -     
+    A14                         5        V        -       -       -     
+    A15                         4        V        -       -       -     
+    Address                     0        F        -       -       -     
+    BANKSELECT                  17       V        -       -       -     
+    BANKSELECT          d       17       X        13      14      1     
+    BANKSELECT          ar      17       X        1       1       1     
+    BANKSELECT          sp      17       X        1       1       1     
+    BANK_CHANGED                0        I        2       -       -     
+    BANK_OFF                    0        I        1       -       -     
+    BANK_ON                     0        I        1       -       -     
+    BANK_OVERRIDE               0        I        2       -       -     
+    BANK_RESULT                 0        I        2       -       -     
+    BANK_SELECT                 0        I        2       -       -     
+    BANK_VALUE                  0        I        1       -       -     
+    CLK                         1        V        -       -       -     
+    DMA                         3        V        -       -       -     
+    IO_1                        0        I        1       -       -     
+    IO_2                        0        I        1       -       -     
+    IO_3                        0        I        1       -       -     
+    IO_4                        0        I        1       -       -     
+    IO_5                        0        I        1       -       -     
+    IO_6                        0        I        1       -       -     
+    IO_ALT                      0        I        1       -       -     
+    IO_CS                       20       V        5       14      1     
+    IO_SHADOW                   0        I        5       -       -     
+    PWRITE                      21       V        12      12      1     
+    RAM                         0        I        1       -       -     
+    RAM_B14                     23       V        3       8       1     
+    RAM_CS                      19       V        16      16      1     
+    ROM                         0        I        1       -       -     
+    ROM_CS                      22       V        1       10      1     
+    RW                          2        V        -       -       -     
+    SINGLEBUFFER                18       V        -       -       -     
+    SINGLEBUFFER        d       18       X        16      16      1     
+    SINGLEBUFFER        ar      18       X        1       1       1     
+    SINGLEBUFFER        sp      18       X        1       1       1     
+    SINGLE_CHANGED              0        I        2       -       -     
+    SINGLE_OFF                  0        I        1       -       -     
+    SINGLE_ON                   0        I        1       -       -     
+    SINGLE_VALUE                0        I        1       -       -     
+    VIDEO                       0        I        1       -       -     
+    A4                  oe      16       D        1       1       0     
+    A5                  oe      15       D        1       1       0     
+    A6                  oe      14       D        1       1       0     
+    BANKSELECT          oe      17       D        1       1       0     
+    IO_CS               oe      20       D        1       1       0     
+    PWRITE              oe      21       D        1       1       0     
+    RAM_B14             oe      23       D        1       1       0     
+    RAM_CS              oe      19       D        1       1       0     
+    ROM_CS              oe      22       D        1       1       0     
+    SINGLEBUFFER        oe      18       D        1       1       0     
+
+
+LEGEND    D : default variable         F : field      G : group
+          I : intermediate variable    N : node       M : extended node
+          U : undefined                V : variable   X : extended variable
+          T : function
+
+
+===============================================================================
+                                   Fuse Plot
+===============================================================================
+
+SP 
+ 05764 x------------------------------------------- 
+
+AR 
+ 00000 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+
+Pin #23  05808 Mode  -- 
+ 00044 -------------------------------------------- 
+ 00088 ----------------x--------------------------- 
+ 00132 --------x----x---x--x-x----x---------------- 
+ 00176 ---------x---x---x--x-x---x----------------- 
+ 00220 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 00264 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 00308 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 00352 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 00396 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+Pin #22  05810 Mode  x- 
+ 00440 -------------------------------------------- 
+ 00484 ------------x------------------------------- 
+ 00528 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 00572 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 00616 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 00660 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 00704 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 00748 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 00792 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 00836 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 00880 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+Pin #21  05812 Mode  x- 
+ 00924 -------------------------------------------- 
+ 00968 x----x------x------------------------------- 
+ 01012 x----x-----------x-------------------------- 
+ 01056 x----x--------------x----------------------- 
+ 01100 x----x------------------x------------------- 
+ 01144 x----x----------------------x--------------- 
+ 01188 x----x--------------------------x----------- 
+ 01232 x----x------------------------------x------- 
+ 01276 x----x----------------------------------x--- 
+ 01320 x----x------------------------------------x- 
+ 01364 x----x-------------------------x---x---x---- 
+ 01408 x----x------------------------x-------x----- 
+ 01452 x----x----------------------------x---x----- 
+Pin #20  05814 Mode  x- 
+ 01496 -------------------------------------------- 
+ 01540 -------------x--x----x-------x-x-x-x-x-x-x-x 
+ 01584 -------------x--x---x----x---x-x-x-x-x-x-x-x 
+ 01628 -------------x--x----x--x----xx--x-x-x-x-x-x 
+ 01672 -------------x--x----x--x----x-x-xx--x-x-x-x 
+ 01716 -------------x--x----x--x----x-x-x-x-xx--x-x 
+ 01760 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 01804 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 01848 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 01892 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 01936 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 01980 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 02024 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 02068 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 02112 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+Pin #19  05816 Mode  x- 
+ 02156 -------------------------------------------- 
+ 02200 -------------x---x-------------------------- 
+ 02244 -------------x------x---x------------------- 
+ 02288 -------------x------x-----------------x----- 
+ 02332 -------------x------x-------------x--------- 
+ 02376 -------------x------x---------x------------- 
+ 02420 -------------x-----------x------------x----- 
+ 02464 -------------x-----------x--------x--------- 
+ 02508 -------------x-----------x----x------------- 
+ 02552 -------------x--------------x--------------- 
+ 02596 -------------x------------------x----------- 
+ 02640 -------------x----------------------x------- 
+ 02684 -------------x--------------------------x--- 
+ 02728 -------------x----------------------------x- 
+ 02772 -------------x--------------------x---x----- 
+ 02816 -------------x----------------x-------x----- 
+ 02860 -------------x----------------x---x--------- 
+Pin #18  05818 Mode  -x 
+ 02904 -------------------------------------------- 
+ 02948 -----x-------x--x----x---x---xx--xx--x-x-x-x 
+ 02992 ------------x----------x-------------------- 
+ 03036 -----------------x-----x-------------------- 
+ 03080 --------------------x--x-------------------- 
+ 03124 -----------------------xx------------------- 
+ 03168 -----------------------x----x--------------- 
+ 03212 -----------------------x--------x----------- 
+ 03256 -----------------------x------------x------- 
+ 03300 -----------------------x----------------x--- 
+ 03344 -----------------------x------------------x- 
+ 03388 -----------------------x-----------x---x---- 
+ 03432 -----------------------x-------x-------x---- 
+ 03476 -----------------------x----------x---x----- 
+ 03520 -----------------------x-------x--x--------- 
+ 03564 -----------------------x------x----x-------- 
+ 03608 -----------------------x------x-------x----- 
+Pin #17  05820 Mode  -x 
+ 03652 -------------------------------------------- 
+ 03696 -----x-------x--x----x---x---xx--x-x-x-x-x-x 
+ 03740 ------------x--------------x---------------- 
+ 03784 -----------------x---------x---------------- 
+ 03828 --------------------x------x---------------- 
+ 03872 ------------------------x--x---------------- 
+ 03916 ---------------------------xx--------------- 
+ 03960 ---------------------------x----x----------- 
+ 04004 ---------------------------x--------x------- 
+ 04048 ---------------------------x------------x--- 
+ 04092 ---------------------------x--------------x- 
+ 04136 ---------------------------x----------x----- 
+ 04180 ---------------------------x--x---x--------- 
+ 04224 ---------------------------x---x---x-------- 
+ 04268 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+Pin #16  05822 Mode  x- 
+ 04312 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04356 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04400 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04444 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04488 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04532 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04576 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04620 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04664 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04708 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04752 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04796 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04840 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+Pin #15  05824 Mode  x- 
+ 04884 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04928 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 04972 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05016 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05060 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05104 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05148 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05192 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05236 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05280 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05324 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+Pin #14  05826 Mode  x- 
+ 05368 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05412 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05456 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05500 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05544 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05588 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05632 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05676 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+ 05720 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
+
+
+LEGEND    X : fuse not blown 
+          - : fuse blown 
+
+===============================================================================
+                                 Chip Diagram
+===============================================================================
+
+                               ______________
+                              |   BE6502DR   |
+                      CLK x---|1           24|---x Vcc                      
+                       RW x---|2           23|---x RAM_B14                  
+                      DMA x---|3           22|---x ROM_CS                   
+                      A15 x---|4           21|---x PWRITE                   
+                      A14 x---|5           20|---x IO_CS                    
+                      A13 x---|6           19|---x RAM_CS                   
+                      A12 x---|7           18|---x SINGLEBUFFER             
+                      A11 x---|8           17|---x BANKSELECT               
+                      A10 x---|9           16|---x A4                       
+                       A9 x---|10          15|---x A5                       
+                       A8 x---|11          14|---x A6                       
+                      GND x---|12          13|---x A7                       
+                              |______________|
+
