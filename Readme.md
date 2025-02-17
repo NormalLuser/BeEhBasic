@@ -70,7 +70,8 @@ This could be done without the double buffer with a self erasing sprite, but as 
 
 I also added some BEEP commands so that there is a foot-fall sound if you have the speaker hooked up (see below).
 
-![RUN](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/RunningMan.gif)
+![Llife](https://raw.githubusercontent.com/NormalL-Life/blob/main/NormalLlife.gif)
+
 
 This 10 lines of code gets me quite a lot:
 
