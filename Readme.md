@@ -70,7 +70,7 @@ This could be done without the double buffer with a self erasing sprite, but as 
 
 I also added some BEEP commands so that there is a foot-fall sound if you have the speaker hooked up (see below).
 
-![Llife](https://raw.githubusercontent.com/NormalL-Life/blob/main/NormalLlife.gif)
+![Double Buffer Demo](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/RunningMan.gif)
 
 
 This 10 lines of code gets me quite a lot:
@@ -267,3 +267,4 @@ I should look to see what the exact difference is between my decoding and Ben’
 But I now will use address $5000 for the ACIA to insure this software works with anyone with Ben’s Serial kit or who otherwise follows along with Ben’s videos.
 
 <br>
+
