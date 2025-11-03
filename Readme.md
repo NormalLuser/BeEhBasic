@@ -53,9 +53,10 @@ image file loaded in it.
 
 
 
-With 3 added 74 series chips, and one unused gate you already have from the VGA kit, you can have a hardware double buffer!
+With a few added 74 series chips, and one unused gate you already have from the VGA kit, you can have a hardware double buffer!
 This takes advantage of the unused 16K of SRAM that is not mapped due to the simple address decoding of the orginal Ben Eater 6502 setup.
 If you have the VGA kit with your 6502 the first thing you want to do is clock your cpu at 5Mhz. (See Note on bottom)
+
 But the next modification you should make hardware wise is the double buffer. It makes a huge improvement in what can be done and makes draw routines easier since you get to write off screen without worrying about flickers and garbage as you draw to a live video output.
 
 The running sprite program below uses 8 frames of animation stored in a raw bitmap on the ROM in the unused space between EhBasic and Woz Monitor .My program simply fills the screen with a random color on my new hardware screen buffer, then it draws the line using the last color used for the background color. Then I add the tick-marks,
@@ -267,6 +268,7 @@ I should look to see what the exact difference is between my decoding and Ben’
 But I now will use address $5000 for the ACIA to insure this software works with anyone with Ben’s Serial kit or who otherwise follows along with Ben’s videos.
 
 <br>
+
 
 
 
