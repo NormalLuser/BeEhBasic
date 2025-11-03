@@ -47,7 +47,7 @@ image file loaded in it.
 
 ![Double Buffer Demo](https://raw.githubusercontent.com/Fifty1Ford/BeEhBasic/main/DoubleBufferScroll.gif)
 
-![Double Buffer Logic](https://github.comhttps://raw.githubusercontent.com/NormalLuser/BeEhBasic/blob/main/NormalLuserBEMemMapFix.png)
+![Double Buffer Logic](https://raw.githubusercontent.com/NormalLuser/BeEhBasic/refs/heads/main/NormalLuserBEMemMapFix.png)
 
 
 
@@ -267,5 +267,6 @@ I should look to see what the exact difference is between my decoding and Ben’
 But I now will use address $5000 for the ACIA to insure this software works with anyone with Ben’s Serial kit or who otherwise follows along with Ben’s videos.
 
 <br>
+
 
 
